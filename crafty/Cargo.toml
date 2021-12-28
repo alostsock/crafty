@@ -1,0 +1,23 @@
+[package]
+name = "crafty"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crafty_models = { path = "../crafty_models" }
+phf = "0.10.0"
+structopt = "0.3.25"
+anyhow = "1.0.52"
+dialoguer = "0.8.0"
+ctrlc = "3.2.1"
+
+[build-dependencies]
+crafty_models = { path = "../crafty_models" }
+csv = "1.1.6"
+phf_codegen = "0.10.0"
+
+[build-dependencies.serde]
+version = "1.0.132"
+features = ["derive"]

@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+  "crafty",
+  "crafty_models"
+]
