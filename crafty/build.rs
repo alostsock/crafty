@@ -19,9 +19,20 @@ fn main() {
 // prog/qual/dur are derived from base values in RecipeLevelTable.csv. Many
 // crafts will have identical prog/qual/dur. Here we merge both CSV files to
 // create a summarized map.
+//
+// Levels.csv contains the base recipe level per job level.
 fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
     let mut recipes_csv = csv::Reader::from_path("data/Recipe.csv")?;
     let mut recipe_levels_csv = csv::Reader::from_path("data/RecipeLevelTable.csv")?;
+    let mut levels_csv = csv::Reader::from_path("data/LevelTable.csv")?;
+
+    // Process the level table
+    let mut recipe_level_by_job_level = HashMap::new();
+
+    for record in levels_csv.deserialize::<Levels>() {
+        let level = record?;
+        recipe_level_by_job_level.insert(level.job_level, level.recipe_level);
+    }
 
     // Process the recipe level table and create a lookup by recipe level
     let mut recipe_levels = HashMap::new();
@@ -35,7 +46,7 @@ fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
     let mut distinct_recipe_variants = HashSet::new();
 
     fn apply_factor(attr: u32, factor: u32) -> u32 {
-        (attr as f64 * factor as f64 / 100f64).floor() as u32
+        ((attr * factor) as f64 / 100.0).floor() as u32
     }
 
     for record in recipes_csv.deserialize::<Recipe>() {
@@ -81,22 +92,42 @@ fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Generate a source file
+    // Generate source files
     let out_dir = env::var("OUT_DIR")?;
+
+    let out_path = Path::new(&out_dir).join("levels.rs");
+    let mut levels_writer = BufWriter::new(File::create(&out_path).unwrap());
+    let mut levels = phf_codegen::Map::new();
+    for (key, val) in recipe_level_by_job_level {
+        levels.entry(key, &val.to_string());
+    }
+    writeln!(
+        levels_writer,
+        "static LEVELS: phf::Map<u32, u32> = {};\n",
+        levels.build()
+    )?;
+
     let out_path = Path::new(&out_dir).join("recipes.rs");
-    let mut writer = BufWriter::new(File::create(&out_path).unwrap());
+    let mut recipes_writer = BufWriter::new(File::create(&out_path).unwrap());
     let mut recipes = phf_codegen::Map::new();
     for (key, val) in recipes_by_level {
         let static_array = &format!("&{:?}", val);
         recipes.entry(key, static_array);
     }
     writeln!(
-        writer,
+        recipes_writer,
         "static RECIPES: phf::Map<u32, &'static [RecipeVariant]> = {};\n",
         recipes.build()
     )?;
 
     Ok(())
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct Levels {
+    job_level: u32,
+    recipe_level: u32,
 }
 
 #[allow(dead_code)]

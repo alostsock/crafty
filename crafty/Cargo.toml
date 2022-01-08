@@ -12,6 +12,7 @@ structopt = "0.3.25"
 anyhow = "1.0.52"
 dialoguer = "0.8.0"
 ctrlc = "3.2.1"
+rand = "0.8.4"
 
 [build-dependencies]
 crafty_models = { path = "../crafty_models" }

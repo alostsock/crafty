@@ -105,6 +105,7 @@ dependencies = [
  "dialoguer",
  "phf",
  "phf_codegen",
+ "rand",
  "serde",
  "structopt",
 ]

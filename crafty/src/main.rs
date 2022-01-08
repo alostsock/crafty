@@ -1,4 +1,8 @@
-use anyhow::{anyhow, Context, Result};
+mod validators;
+
+use crate::validators::is_between;
+use anyhow::{Context, Result};
+use crafty::{Player, Simulator};
 use crafty_models::RecipeVariant;
 use dialoguer::{console::Style, theme::ColorfulTheme, Input, Select};
 use structopt::StructOpt;
@@ -8,7 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/recipes.rs"));
 #[derive(Debug, StructOpt)]
 #[structopt(name = "crafty")]
 /// a ffxiv crafting optimization tool
-struct Opt {
+struct CliArgs {
     /// the player's job level
     job_level: u32,
 
@@ -28,23 +32,12 @@ fn main() -> Result<()> {
         let _ = term.show_cursor();
     })?;
 
-    let opt = Opt::from_args();
+    let args = CliArgs::from_args();
 
-    let cyan = Style::new().green();
-
-    is_between(&opt.job_level, 1, 90, "job level")?;
-    is_between(&opt.craftsmanship, 1, 5000, "craftsmanship")?;
-    is_between(&opt.control, 1, 5000, "control")?;
-    is_between(&opt.cp, 1, 400, "cp")?;
-
-    println!(
-        "\n{}\n  lv{} / craftsmanship {} / control {} / cp {}\n",
-        cyan.apply_to("player stats:"),
-        opt.job_level,
-        opt.craftsmanship,
-        opt.control,
-        opt.cp
-    );
+    is_between(&args.job_level, 1, 90, "job level")?;
+    is_between(&args.craftsmanship, 1, 5000, "craftsmanship")?;
+    is_between(&args.control, 1, 5000, "control")?;
+    is_between(&args.cp, 1, 700, "cp")?;
 
     let recipe_job_level: u32 = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("recipe level? (1-90)")
@@ -53,19 +46,28 @@ fn main() -> Result<()> {
         .interact_text()?;
 
     let possible_recipes = RECIPES.get(&recipe_job_level).unwrap();
-    let recipe = select_prompt(possible_recipes, "recipe variant?")?;
 
-    println!("\n{}\n  {}", cyan.apply_to("selected recipe:"), recipe);
+    let recipe = select_prompt(possible_recipes, "recipe variant?")?;
+    // println!("{:?}", recipe);
+
+    let player = Player::new(
+        args.job_level,
+        args.craftsmanship,
+        args.control,
+        args.cp,
+        recipe,
+    );
+
+    print_info("player stats:", &format!("{}", player));
+
+    let sim = Simulator::new(recipe, &player);
 
     Ok(())
 }
 
-fn is_between(value: &u32, min: u32, max: u32, label: &str) -> Result<()> {
-    if value >= &min && value <= &max {
-        Ok(())
-    } else {
-        Err(anyhow!("{} should be between {} and {}", label, min, max))
-    }
+fn print_info(header: &str, details: &str) {
+    let cyan = Style::new().green();
+    println!("\n{}\n  {}\n", header, cyan.apply_to(details));
 }
 
 fn select_prompt<'a, T>(items: &'a [T], prompt: &str) -> Result<&'a T>
