@@ -4,6 +4,7 @@ pub struct Arena<T> {
     nodes: Vec<Node<T>>,
 }
 
+#[allow(dead_code)]
 impl<T> Arena<T> {
     pub fn new(initial_value: T) -> Self {
         let initial_node = Node {

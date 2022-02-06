@@ -1,8 +1,5 @@
-mod validators;
-
-use crate::validators::is_between;
 use anyhow::{Context, Result};
-use crafty::{Player, Simulator};
+use crafty::{validators::is_between, Player, Simulator};
 use crafty_models::RecipeVariant;
 use dialoguer::{console::Style, theme::ColorfulTheme, Input, Select};
 use structopt::StructOpt;
@@ -48,15 +45,8 @@ fn main() -> Result<()> {
     let possible_recipes = RECIPES.get(&recipe_job_level).unwrap();
 
     let recipe = select_prompt(possible_recipes, "recipe variant?")?;
-    // println!("{:?}", recipe);
 
-    let player = Player::new(
-        args.job_level,
-        args.craftsmanship,
-        args.control,
-        args.cp,
-        recipe,
-    );
+    let player = Player::new(args.job_level, args.craftsmanship, args.control, args.cp);
 
     print_info("player stats:", &format!("{}", player));
 

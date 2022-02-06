@@ -1,4 +1,11 @@
-use crate::CraftState;
+use crate::craft_state::CraftState;
+
+pub struct ActionValues {
+    progress_efficiency: Option<f64>,
+    quality_efficiency: Option<f64>,
+    durability_cost: u32,
+    cp_cost: u32,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -6,22 +13,44 @@ pub enum Action {
     BasicTouch,
 }
 
-fn progress(craft_state: &CraftState, efficiency: f64) -> u32 {
-    let progress_mult = craft_state.player.progress_factor;
-    (efficiency * progress_mult).floor() as u32
+fn progress(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
+    if let Some(eff) = efficiency {
+        let progress_mult = craft_state.progress_factor;
+        (eff * progress_mult).floor() as u32
+    } else {
+        0
+    }
 }
 
-fn quality(craft_state: &CraftState, efficiency: f64) -> u32 {
-    let quality_mult = craft_state.player.quality_factor;
-    (efficiency * quality_mult).floor() as u32
-}
-
-fn durability(_craft_state: &CraftState, base: u32) -> u32 {
-    base
+fn quality(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
+    if let Some(eff) = efficiency {
+        let quality_mult = craft_state.quality_factor;
+        (eff * quality_mult).floor() as u32
+    } else {
+        0
+    }
 }
 
 impl Action {
-    fn execute<'a>(&self, craft_state: &'a CraftState) -> CraftState<'a> {
+    pub fn values(&self) -> ActionValues {
+        use Action::*;
+        match *self {
+            BasicSynthesis => ActionValues {
+                progress_efficiency: Some(1.2),
+                quality_efficiency: Some(1.0),
+                cp_cost: 0,
+                durability_cost: 10,
+            },
+            BasicTouch => ActionValues {
+                progress_efficiency: None,
+                quality_efficiency: Some(1.0),
+                durability_cost: 10,
+                cp_cost: 18,
+            },
+        }
+    }
+
+    pub fn execute(&self, craft_state: &CraftState) -> CraftState {
         let mut next_state = CraftState {
             action: Some(*self),
             probability: 1.0,
@@ -32,18 +61,17 @@ impl Action {
             ..*craft_state
         };
 
-        use Action::*;
-        match *self {
-            BasicSynthesis => {
-                next_state.progress += progress(craft_state, 1.2);
-                next_state.durability -= durability(craft_state, 10);
-            }
-            BasicTouch => {
-                next_state.quality += quality(craft_state, 1.0);
-                next_state.durability -= durability(craft_state, 10);
-                next_state.cp_remaining -= 18;
-            }
-        }
+        let ActionValues {
+            progress_efficiency,
+            quality_efficiency,
+            durability_cost,
+            cp_cost,
+        } = self.values();
+
+        next_state.progress += progress(craft_state, progress_efficiency);
+        next_state.quality += quality(craft_state, quality_efficiency);
+        next_state.durability_left -= durability_cost;
+        next_state.cp_left -= cp_cost;
 
         next_state
     }
