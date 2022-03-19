@@ -35,6 +35,8 @@ impl Simulator {
         let initial_state = CraftState::new(
             progress_factor,
             quality_factor,
+            recipe.progress,
+            recipe.quality,
             recipe.durability,
             player.cp,
         );

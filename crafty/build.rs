@@ -8,31 +8,26 @@ use std::path::Path;
 use std::{env, process};
 
 fn main() {
-    if let Err(error) = create_recipe_map() {
+    if let Err(error) = process_recipe_tables() {
+        println!("{}", error);
+        process::exit(1);
+    }
+    if let Err(error) = process_level_table() {
         println!("{}", error);
         process::exit(1);
     }
 }
 
-// Neither Recipe.csv nor RecipeLevelTable.csv have all of the information
-// required for a single craft. Recipe.csv contains every recipe, for which
-// prog/qual/dur are derived from base values in RecipeLevelTable.csv. Many
-// crafts will have identical prog/qual/dur. Here we merge both CSV files to
-// create a summarized map.
-//
-// Levels.csv contains the base recipe level per job level.
-fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
+/// Process Recipe.csv and RecipeLevelTable.csv. Neither table has all of the
+/// information required for a single craft. Recipe.csv contains metadata for
+/// every recipe, for which progress, quality, and durability (PQD) should be
+/// derived from base values in RecipeLevelTable.csv.
+///
+/// Many crafts will have identical PQD requirements. Here, we merge
+/// both CSV files and create a distinct list.
+fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     let mut recipes_csv = csv::Reader::from_path("data/Recipe.csv")?;
     let mut recipe_levels_csv = csv::Reader::from_path("data/RecipeLevelTable.csv")?;
-    let mut levels_csv = csv::Reader::from_path("data/LevelTable.csv")?;
-
-    // Process the level table
-    let mut recipe_level_by_job_level = HashMap::new();
-
-    for record in levels_csv.deserialize::<Levels>() {
-        let level = record?;
-        recipe_level_by_job_level.insert(level.job_level, level.recipe_level);
-    }
 
     // Process the recipe level table and create a lookup by recipe level
     let mut recipe_levels = HashMap::new();
@@ -42,12 +37,14 @@ fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
         recipe_levels.insert(recipe_level.recipe_level, recipe_level);
     }
 
-    // Process recipes, and keep track of distinct recipe variants
-    let mut distinct_recipe_variants = HashSet::new();
-
-    fn apply_factor(attr: u32, factor: u32) -> u32 {
-        ((attr * factor) as f64 / 100.0).floor() as u32
+    // Convert base values from RecipeLevelTable to actual PQD requirements for
+    // a recipe
+    fn apply_factor(base: u32, factor: u32) -> u32 {
+        ((base * factor) as f64 / 100.0).floor() as u32
     }
+
+    // Process the recipe table, and keep track of distinct recipe variants
+    let mut distinct_recipe_variants = HashSet::new();
 
     for record in recipes_csv.deserialize::<Recipe>() {
         let recipe = record?;
@@ -71,7 +68,7 @@ fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Sort and group recipes by job level
+    // Sort and group recipes by job level for ease of selection
     let mut recipe_variants: Vec<_> = distinct_recipe_variants.into_iter().collect();
     recipe_variants.sort_by(|a, b| {
         let first = a.job_level.cmp(&b.job_level);
@@ -92,32 +89,53 @@ fn create_recipe_map() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Generate source files
-    let out_dir = env::var("OUT_DIR")?;
-
-    let out_path = Path::new(&out_dir).join("levels.rs");
-    let mut levels_writer = BufWriter::new(File::create(&out_path).unwrap());
-    let mut levels = phf_codegen::Map::new();
-    for (key, val) in recipe_level_by_job_level {
-        levels.entry(key, &val.to_string());
-    }
-    writeln!(
-        levels_writer,
-        "static LEVELS: phf::Map<u32, u32> = {};\n",
-        levels.build()
-    )?;
-
-    let out_path = Path::new(&out_dir).join("recipes.rs");
-    let mut recipes_writer = BufWriter::new(File::create(&out_path).unwrap());
+    // Prepare phf map
     let mut recipes = phf_codegen::Map::new();
     for (key, val) in recipes_by_level {
         let static_array = &format!("&{:?}", val);
         recipes.entry(key, static_array);
     }
+
+    // Generate source files
+    let out_dir = env::var("OUT_DIR")?;
+    let out_path = Path::new(&out_dir).join("recipes.rs");
+    let mut recipes_writer = BufWriter::new(File::create(&out_path).unwrap());
     writeln!(
         recipes_writer,
         "static RECIPES: phf::Map<u32, &'static [RecipeVariant]> = {};\n",
         recipes.build()
+    )?;
+
+    Ok(())
+}
+
+/// Process LevelTable.csv, used to convert the player's job level to a base
+/// recipe level.
+fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
+    let mut levels_csv = csv::Reader::from_path("data/LevelTable.csv")?;
+
+    // Process the level table
+    let mut recipe_level_by_job_level = HashMap::new();
+
+    for record in levels_csv.deserialize::<Levels>() {
+        let level = record?;
+        recipe_level_by_job_level.insert(level.job_level, level.recipe_level);
+    }
+
+    // Prepare phf map
+    let mut levels = phf_codegen::Map::new();
+    for (key, val) in recipe_level_by_job_level {
+        levels.entry(key, &val.to_string());
+    }
+
+    // Generate source files
+    let out_dir = env::var("OUT_DIR")?;
+    let out_path = Path::new(&out_dir).join("levels.rs");
+    let mut levels_writer = BufWriter::new(File::create(&out_path).unwrap());
+    writeln!(
+        levels_writer,
+        "static LEVELS: phf::Map<u32, u32> = {};\n",
+        levels.build()
     )?;
 
     Ok(())
