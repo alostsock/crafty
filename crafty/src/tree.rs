@@ -6,25 +6,25 @@ pub struct Arena<T> {
 
 #[allow(dead_code)]
 impl<T> Arena<T> {
-    pub fn new(initial_value: T) -> Self {
+    pub fn new(initial_state: T) -> Self {
         let initial_node = Node {
             parent: None,
             index: 0,
             children: vec![],
-            value: initial_value,
+            state: initial_state,
         };
         Arena {
             nodes: vec![initial_node],
         }
     }
 
-    pub fn insert(&mut self, parent_index: usize, value: T) -> Result<usize> {
+    pub fn insert(&mut self, parent_index: usize, state: T) -> Result<usize> {
         let index = self.nodes.len();
         let node = Node {
             parent: Some(parent_index),
             index,
             children: vec![],
-            value,
+            state,
         };
         self.get_mut(parent_index)?.children.push(index);
         self.nodes.push(node);
@@ -48,7 +48,7 @@ pub struct Node<T> {
     pub parent: Option<usize>,
     pub index: usize,
     pub children: Vec<usize>,
-    pub value: T,
+    pub state: T,
 }
 
 #[cfg(test)]
@@ -60,7 +60,7 @@ mod tests {
         let arena = Arena::new("a");
 
         assert_eq!(arena.nodes.len(), 1);
-        assert_eq!(arena.get(0).unwrap().value, "a");
+        assert_eq!(arena.get(0).unwrap().state, "a");
     }
 
     #[test]
@@ -72,7 +72,7 @@ mod tests {
         let index_b = arena.insert(0, "b").unwrap();
 
         assert_eq!(arena.nodes.len(), 2);
-        assert_eq!(arena.get(index_b).unwrap().value, "b");
+        assert_eq!(arena.get(index_b).unwrap().state, "b");
         assert_eq!(arena.get(0).unwrap().children.len(), 1);
     }
 }

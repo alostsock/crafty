@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
-use crafty::{validators::is_between, Player, Simulator};
+use anyhow::{anyhow, Context, Result};
+use crafty::{player::Player, simulator::Simulator};
 use crafty_models::RecipeVariant;
 use dialoguer::{console::Style, theme::ColorfulTheme, Input, Select};
 use structopt::StructOpt;
@@ -12,13 +12,10 @@ include!(concat!(env!("OUT_DIR"), "/recipes.rs"));
 struct CliArgs {
     /// the player's job level
     job_level: u32,
-
     /// the player's craftsmanship stat
     craftsmanship: u32,
-
     /// the player's control stat
     control: u32,
-
     /// the player's cp stat
     cp: u32,
 }
@@ -44,15 +41,23 @@ fn main() -> Result<()> {
 
     let possible_recipes = RECIPES.get(&recipe_job_level).unwrap();
 
-    let recipe = select_prompt(possible_recipes, "recipe variant?")?;
+    let recipe = prompt_selection(possible_recipes, "recipe variant?")?;
 
     let player = Player::new(args.job_level, args.craftsmanship, args.control, args.cp);
 
     print_info("player stats:", &format!("{}", player));
 
-    let sim = Simulator::new(recipe, &player);
+    let _sim = Simulator::new(recipe, &player);
 
     Ok(())
+}
+
+fn is_between(value: &u32, min: u32, max: u32, label: &str) -> Result<()> {
+    if value >= &min && value <= &max {
+        Ok(())
+    } else {
+        Err(anyhow!("{} should be between {} and {}", label, min, max))
+    }
 }
 
 fn print_info(header: &str, details: &str) {
@@ -60,7 +65,7 @@ fn print_info(header: &str, details: &str) {
     println!("\n{}\n  {}\n", header, cyan.apply_to(details));
 }
 
-fn select_prompt<'a, T>(items: &'a [T], prompt: &str) -> Result<&'a T>
+fn prompt_selection<'a, T>(items: &'a [T], prompt: &str) -> Result<&'a T>
 where
     T: std::fmt::Display,
 {

@@ -7,12 +7,13 @@ pub struct ActionValues {
     cp_cost: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     BasicSynthesis,
     BasicTouch,
 }
 
+/// Calculate increase in progress from craft state
 fn progress(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
     if let Some(eff) = efficiency {
         let progress_mult = craft_state.progress_factor;
@@ -22,6 +23,7 @@ fn progress(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
     }
 }
 
+/// Calculate increase in quality from craft state
 fn quality(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
     if let Some(eff) = efficiency {
         let quality_mult = craft_state.quality_factor;
@@ -31,13 +33,18 @@ fn quality(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
     }
 }
 
+/// TODO: Determine possible moves based on durability, cost, cp, buffs
+fn determine_possible_moves() -> Vec<Action> {
+    ACTIONS.to_vec()
+}
+
 impl Action {
     pub fn values(&self) -> ActionValues {
         use Action::*;
         match *self {
             BasicSynthesis => ActionValues {
                 progress_efficiency: Some(1.2),
-                quality_efficiency: Some(1.0),
+                quality_efficiency: None,
                 cp_cost: 0,
                 durability_cost: 10,
             },
@@ -52,12 +59,12 @@ impl Action {
 
     pub fn execute(&self, craft_state: &CraftState) -> CraftState {
         let mut next_state = CraftState {
+            step: craft_state.step + 1,
             action: Some(*self),
             probability: 1.0,
             wins: 0.0,
             playouts: 0.0,
-            possible_moves: vec![],
-            step: craft_state.step + 1,
+            available_moves: determine_possible_moves(),
             ..*craft_state
         };
 
@@ -70,8 +77,8 @@ impl Action {
 
         next_state.progress += progress(craft_state, progress_efficiency);
         next_state.quality += quality(craft_state, quality_efficiency);
-        next_state.durability_left -= durability_cost;
-        next_state.cp_left -= cp_cost;
+        next_state.durability -= durability_cost;
+        next_state.cp -= cp_cost;
 
         next_state
     }
