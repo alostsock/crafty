@@ -104,11 +104,18 @@ mod tests {
     #[test]
     fn basic_actions() {
         let (_recipe, _player, mut sim) = setup();
-        let result_node = sim.execute_actions(0, vec![Action::BasicTouch, Action::BasicSynthesis]);
+        let result_node = sim.execute_actions(
+            0,
+            vec![
+                Action::BasicTouch,
+                Action::BasicSynthesis,
+                Action::MastersMend,
+            ],
+        );
         let result = &sim.tree.get(result_node).unwrap().state;
         assert_eq!(result.progress, 276);
         assert_eq!(result.quality, 262);
-        assert_eq!(result.durability, 60);
-        assert_eq!(result.cp, 557);
+        assert_eq!(result.durability, 80);
+        assert_eq!(result.cp, 469);
     }
 }

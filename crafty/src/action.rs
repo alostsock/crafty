@@ -4,42 +4,198 @@ use std::cmp;
 pub struct ActionAttributes {
     progress_efficiency: Option<f64>,
     quality_efficiency: Option<f64>,
-    durability_cost: u32,
-    cp_cost: u32,
+    durability_cost: Option<u32>,
+    cp_cost: Option<u32>,
+    effect: Option<fn(&mut CraftState)>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Action {
-    BasicSynthesis,
-    BasicTouch,
+macro_rules! optional {
+    () => {
+        None
+    };
+    ($e:expr) => {
+        Some($e)
+    };
 }
 
-fn progress(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
-    if let Some(eff) = efficiency {
-        let progress_mult = craft_state.progress_factor;
-        craft_state.progress + (eff * progress_mult).floor() as u32
-    } else {
-        craft_state.progress
+macro_rules! create_actions {
+    (
+        $(
+            $action_name:ident (
+                $(progress $progress:expr,)?
+                $(quality $quality:expr,)?
+                $(durability $durability:expr,)?
+                $(cp $cp:expr,)?
+                $(effect $effect:expr)?
+            )
+        ),+ $(,)?
+    ) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum Action {
+            $($action_name,)*
+        }
+
+        pub const ACTIONS: &[Action] = &[
+            $(Action::$action_name,)*
+        ];
+
+        impl Action {
+            pub fn attributes(&self) -> ActionAttributes {
+                match *self {
+                    $(
+                        Action::$action_name => ActionAttributes {
+                            progress_efficiency: optional!($( $progress )?),
+                            quality_efficiency: optional!($( $quality )?),
+                            durability_cost: optional!($( $durability )?),
+                            cp_cost: optional!($( $cp )?),
+                            effect: optional!($( $effect )?),
+                        },
+                    )*
+                }
+            }
+        }
+    };
+}
+
+// https://na.finalfantasyxiv.com/crafting_gathering_guide/carpenter/
+create_actions!(
+    BasicSynthesis(progress 1.2, durability 10,),
+
+    BasicTouch(quality 1.0, durability 10, cp 18,),
+
+    MastersMend(cp 88, effect |state| {
+        state.durability = cmp::min(state.durability + 30, state.durability_max);
+    }),
+
+    // HastyTouch
+    // RapidSynthesis
+    // Observe
+    // TricksOfTheTrade
+
+    WasteNot(cp 56, effect |state| {
+        state.buffs.waste_not = 4;
+    }),
+
+    Veneration(cp 18, effect |state| {
+        state.buffs.veneration = 4;
+    }),
+
+    StandardTouch(quality 1.25, durability 10, cp 32,),
+
+    GreatStrides(cp 32, effect |state| {
+        state.buffs.great_strides = 3;
+    }),
+
+    Innovation(cp 18, effect |state| {
+        state.buffs.innovation = 4;
+    }),
+
+    // FinalAppraisal
+
+    WasteNotII(cp 98, effect |state| {
+        state.buffs.waste_not_ii = 8;
+    }),
+
+    ByregotsBlessing(quality 0.0, durability 10, cp 24, effect |state| {
+        state.buffs.inner_quiet = 0;
+    }),
+
+    // PreciseTouch
+
+    MuscleMemory(progress 3.0, durability 10, cp 6, effect |state| {
+        state.buffs.muscle_memory = 5;
+    }),
+
+    CarefulSynthesis(progress 1.8, durability 10, cp 7,),
+
+    Manipulation(cp 96, effect |state| {
+        state.buffs.manipulation = 8;
+    }),
+
+    PrudentTouch(quality 1.0, durability 5, cp 25,),
+
+    // FocusedSynthesis
+    // FocusedTouch
+
+    Reflect(quality 1.0, durability 10, cp 6, effect |state| {
+        state.buffs.inner_quiet = 1; // only available on first step
+    }),
+
+    PreparatoryTouch(quality 2.0, durability 20, cp 40,),
+
+    Groundwork(progress 3.6, durability 20, cp 18,),
+
+    DelicateSynthesis(progress 1.0, quality 1.0, durability 10, cp 32,),
+
+    // Intensive Synthesis
+
+    TrainedEye(quality 1.0, durability 10, cp 250,),
+
+    AdvancedTouch(quality 1.5, durability 10, cp 46,),
+
+    PrudentSynthesis(progress 1.8, durability 10, cp 18,),
+
+    TrainedFinesse(quality 1.0, durability 10, cp 32,),
+);
+
+fn apply_progress(state: &mut CraftState, efficiency: f64) {
+    let base = state.progress_factor;
+    let mut multiplier = 1.0;
+
+    if state.buffs.veneration > 0 {
+        multiplier += 0.5;
     }
-}
 
-fn quality(craft_state: &CraftState, efficiency: Option<f64>) -> u32 {
-    if let Some(eff) = efficiency {
-        let quality_mult = craft_state.quality_factor;
-        craft_state.quality + (eff * quality_mult).floor() as u32
-    } else {
-        craft_state.quality
+    if state.buffs.muscle_memory > 0 {
+        multiplier += 1.0;
+        state.buffs.muscle_memory = 0;
     }
+
+    state.progress += (base * efficiency * multiplier).floor() as u32;
 }
 
-fn durability(craft_state: &CraftState, cost: u32) -> u32 {
-    let next_durability = craft_state.durability - cost;
-    cmp::min(next_durability, craft_state.durability_max)
+fn apply_quality(state: &mut CraftState, efficiency: f64) {
+    let base = state.quality_factor;
+    let mut multiplier = 1.0;
+
+    multiplier += state.buffs.inner_quiet as f64 / 10.0;
+
+    if state.buffs.innovation > 0 {
+        multiplier += 0.5;
+    }
+
+    if state.buffs.great_strides > 0 {
+        multiplier += 1.0;
+        state.buffs.great_strides = 0;
+    }
+
+    let mut efficiency = efficiency;
+
+    if state.action == Some(Action::ByregotsBlessing) {
+        efficiency = 1.0 + state.buffs.inner_quiet as f64 * 0.2;
+    }
+
+    state.quality += (base * efficiency * multiplier).floor() as u32
 }
 
-fn cp(craft_state: &CraftState, cost: u32) -> u32 {
-    let next_cp = craft_state.cp - cost;
-    cmp::min(next_cp, craft_state.cp_max)
+fn apply_durability(state: &mut CraftState, cost: u32) {
+    let mut divider: u32 = 1;
+
+    if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
+        divider *= 2;
+    }
+
+    let mut durability = state.durability - cost / divider;
+
+    if state.buffs.manipulation > 0 {
+        durability += 5;
+    }
+
+    state.durability = cmp::min(durability, state.durability_max)
+}
+
+fn apply_cp(state: &mut CraftState, cost: u32) {
+    state.cp = cmp::min(state.cp - cost, state.cp_max)
 }
 
 /// TODO: Determine possible moves based on durability, cost, cp, buffs
@@ -48,49 +204,45 @@ fn determine_possible_moves() -> Vec<Action> {
 }
 
 impl Action {
-    pub fn values(&self) -> ActionAttributes {
-        use Action::*;
-        match *self {
-            BasicSynthesis => ActionAttributes {
-                progress_efficiency: Some(1.2),
-                quality_efficiency: None,
-                cp_cost: 0,
-                durability_cost: 10,
-            },
-            BasicTouch => ActionAttributes {
-                progress_efficiency: None,
-                quality_efficiency: Some(1.0),
-                durability_cost: 10,
-                cp_cost: 18,
-            },
-        }
-    }
-
     pub fn execute(&self, craft_state: &CraftState) -> CraftState {
-        let ActionAttributes {
-            progress_efficiency,
-            quality_efficiency,
-            durability_cost,
-            cp_cost,
-        } = self.values();
-
-        CraftState {
+        let mut next_state = CraftState {
             step: craft_state.step + 1,
-            progress: progress(craft_state, progress_efficiency),
-            quality: quality(craft_state, quality_efficiency),
-            durability: durability(craft_state, durability_cost),
-            cp: cp(craft_state, cp_cost),
-            buffs: craft_state.buffs.decrement_timers(),
+            buffs: craft_state.buffs.clone(),
             action: Some(*self),
             probability: 1.0,
             wins: 0.0,
             playouts: 0.0,
-            available_moves: determine_possible_moves(),
+            available_moves: vec![],
             ..*craft_state
+        };
+
+        let action = self.attributes();
+
+        if let Some(progress_efficiency) = action.progress_efficiency {
+            apply_progress(&mut next_state, progress_efficiency);
         }
 
-        // TODO: decrement buff timers
+        if let Some(quality_efficiency) = action.quality_efficiency {
+            apply_quality(&mut next_state, quality_efficiency);
+            next_state.buffs.inner_quiet = cmp::min(next_state.buffs.inner_quiet + 1, 10);
+        }
+
+        if let Some(durability_cost) = action.durability_cost {
+            apply_durability(&mut next_state, durability_cost);
+        }
+
+        if let Some(cp_cost) = action.cp_cost {
+            apply_cp(&mut next_state, cp_cost)
+        }
+
+        next_state.buffs.decrement_timers();
+
+        if let Some(apply_effect) = action.effect {
+            apply_effect(&mut next_state);
+        }
+
+        next_state.available_moves = determine_possible_moves();
+
+        next_state
     }
 }
-
-pub const ACTIONS: &[Action] = &[Action::BasicSynthesis, Action::BasicTouch];

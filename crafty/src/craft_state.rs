@@ -19,18 +19,15 @@ impl Buffs {
         Default::default()
     }
 
-    pub fn decrement_timers(&self) -> Self {
-        Buffs {
-            inner_quiet: self.inner_quiet.saturating_sub(1),
-            waste_not: self.waste_not.saturating_sub(1),
-            waste_not_ii: self.waste_not_ii.saturating_sub(1),
-            manipulation: self.manipulation.saturating_sub(1),
-            great_strides: self.great_strides.saturating_sub(1),
-            innovation: self.innovation.saturating_sub(1),
-            veneration: self.veneration.saturating_sub(1),
-            makers_mark: self.makers_mark.saturating_sub(1),
-            muscle_memory: self.muscle_memory.saturating_sub(1),
-        }
+    pub fn decrement_timers(&mut self) {
+        self.waste_not = self.waste_not.saturating_sub(1);
+        self.waste_not_ii = self.waste_not_ii.saturating_sub(1);
+        self.manipulation = self.manipulation.saturating_sub(1);
+        self.great_strides = self.great_strides.saturating_sub(1);
+        self.innovation = self.innovation.saturating_sub(1);
+        self.veneration = self.veneration.saturating_sub(1);
+        self.makers_mark = self.makers_mark.saturating_sub(1);
+        self.muscle_memory = self.muscle_memory.saturating_sub(1);
     }
 }
 
@@ -92,6 +89,10 @@ impl CraftState {
             playouts: 0.0,
             available_moves: ACTIONS.to_vec(),
         }
+    }
+
+    pub fn is_terminating(&self) -> bool {
+        self.progress >= self.progress_target || self.durability == 0
     }
 
     fn pick_action(&mut self, action: Action) -> Option<Action> {
