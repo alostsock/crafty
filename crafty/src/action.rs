@@ -60,92 +60,63 @@ macro_rules! create_actions {
 // https://na.finalfantasyxiv.com/crafting_gathering_guide/carpenter/
 create_actions!(
     BasicSynthesis(progress 1.2, durability 10,),
-
     BasicTouch(quality 1.0, durability 10, cp 18, effect |state| {
         state.next_combo = Some(Action::StandardTouch);
     }),
-
     MastersMend(cp 88, effect |state| {
         state.durability = cmp::min(state.durability + 30, state.durability_max);
     }),
-
     // HastyTouch
     // RapidSynthesis
-
     Observe(cp 7, effect |state| {
         state.observe = true;
     }),
-
     // TricksOfTheTrade
-
     WasteNot(cp 56, effect |state| {
         state.buffs.waste_not = 4;
     }),
-
     Veneration(cp 18, effect |state| {
         state.buffs.veneration = 4;
     }),
-
     StandardTouch(quality 1.25, durability 10, cp 32, effect |state| {
         if state.next_combo == Some(Action::StandardTouch) {
             state.next_combo = Some(Action::AdvancedTouch);
         }
     }),
-
     GreatStrides(cp 32, effect |state| {
         state.buffs.great_strides = 3;
     }),
-
     Innovation(cp 18, effect |state| {
         state.buffs.innovation = 4;
     }),
-
     // FinalAppraisal
-
     WasteNotII(cp 98, effect |state| {
         state.buffs.waste_not_ii = 8;
     }),
-
     ByregotsBlessing(quality 0.0, durability 10, cp 24,),
-
     // PreciseTouch
-
     MuscleMemory(progress 3.0, durability 10, cp 6, effect |state| {
         state.buffs.muscle_memory = 5;
     }),
-
     CarefulSynthesis(progress 1.8, durability 10, cp 7,),
-
     Manipulation(cp 96, effect |state| {
         state.buffs.manipulation = 8;
     }),
-
     PrudentTouch(quality 1.0, durability 5, cp 25,),
-
     FocusedSynthesis(progress 2.0, durability 10, cp 5,),
-
     FocusedTouch(quality 1.5, durability 10, cp 18,),
-
     Reflect(quality 1.0, durability 10, cp 6, effect |state| {
         state.buffs.inner_quiet = 1; // only available on first step
     }),
-
     PreparatoryTouch(quality 2.0, durability 20, cp 40,),
-
     Groundwork(progress 3.6, durability 20, cp 18,),
-
     DelicateSynthesis(progress 1.0, quality 1.0, durability 10, cp 32,),
-
     // Intensive Synthesis
-
-    TrainedEye(quality 1.0, durability 10, cp 250,),
-
+    // TrainedEye
     AdvancedTouch(quality 1.5, durability 10, cp 46, effect |state| {
         state.next_combo = None;
     }),
-
     PrudentSynthesis(progress 1.8, durability 10, cp 18,),
-
     TrainedFinesse(quality 1.0, durability 10, cp 32,),
 );
 
