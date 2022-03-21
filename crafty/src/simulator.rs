@@ -11,23 +11,23 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    fn calculate_factors(player: &Player, recipe: &RecipeVariant) -> (f64, f64) {
+    fn calculate_factors(player: &Player, recipe: &RecipeVariant) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
 
-        let progress_div = recipe.progress_div as f64;
-        let mut progress_factor: f64 = (player.craftsmanship * 10) as f64 / progress_div + 2.0;
+        let progress_div = recipe.progress_div as f32;
+        let mut progress_factor: f32 = (player.craftsmanship * 10) as f32 / progress_div + 2.0;
 
-        let quality_div = recipe.quality_div as f64;
-        let mut quality_factor: f64 = (player.control * 10) as f64 / quality_div + 35.0;
+        let quality_div = recipe.quality_div as f32;
+        let mut quality_factor: f32 = (player.control * 10) as f32 / quality_div + 35.0;
 
         if let Some(&player_recipe_level) = LEVELS.get(&player.job_level) {
             if player_recipe_level <= recipe.recipe_level {
-                progress_factor *= recipe.progress_mod as f64 / 100.0;
-                quality_factor *= recipe.quality_mod as f64 / 100.0;
+                progress_factor *= recipe.progress_mod as f32 / 100.0;
+                quality_factor *= recipe.quality_mod as f32 / 100.0;
             }
         }
 
-        (progress_factor, quality_factor)
+        (progress_factor.floor(), quality_factor.floor())
     }
 
     pub fn new(recipe: &RecipeVariant, player: &Player) -> Self {
@@ -79,9 +79,11 @@ impl Simulator {
 
 #[cfg(test)]
 mod tests {
+    use crate::craft_state::CraftState;
+
     use super::{Action, Player, RecipeVariant, Simulator};
 
-    fn setup() -> (RecipeVariant, Player, Simulator) {
+    fn setup_sim() -> Simulator {
         let recipe = RecipeVariant {
             recipe_level: 560,
             job_level: 90,
@@ -97,25 +99,46 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
-        let sim = Simulator::new(&recipe, &player);
-        (recipe, player, sim)
+        Simulator::new(&recipe, &player)
+    }
+
+    fn assert_craft(
+        sim: &mut Simulator,
+        actions: Vec<Action>,
+        progress: u32,
+        quality: u32,
+        durability: u32,
+        cp: u32,
+    ) -> &CraftState {
+        let result_node = sim.execute_actions(0, actions);
+        let result = &sim.tree.get(result_node).unwrap().state;
+        assert_eq!(result.progress, progress);
+        assert_eq!(result.quality, quality);
+        assert_eq!(result.durability, durability);
+        assert_eq!(result.cp, cp);
+        result
     }
 
     #[test]
     fn basic_actions() {
-        let (_recipe, _player, mut sim) = setup();
-        let result_node = sim.execute_actions(
-            0,
-            vec![
-                Action::BasicTouch,
-                Action::BasicSynthesis,
-                Action::MastersMend,
-            ],
-        );
-        let result = &sim.tree.get(result_node).unwrap().state;
-        assert_eq!(result.progress, 276);
-        assert_eq!(result.quality, 262);
-        assert_eq!(result.durability, 80);
-        assert_eq!(result.cp, 469);
+        let actions = vec![
+            Action::BasicTouch,
+            Action::BasicSynthesis,
+            Action::MastersMend,
+        ];
+        assert_craft(&mut setup_sim(), actions, 276, 262, 80, 469);
+    }
+
+    #[test]
+    fn basic_touch_combo() {
+        let actions = vec![
+            Action::Innovation,
+            Action::BasicTouch,
+            Action::StandardTouch,
+            Action::AdvancedTouch,
+            Action::StandardTouch,
+            Action::AdvancedTouch,
+        ];
+        assert_craft(&mut setup_sim(), actions, 0, 2828, 30, 425);
     }
 }

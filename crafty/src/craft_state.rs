@@ -34,9 +34,9 @@ impl Buffs {
 #[derive(Debug, Clone)]
 pub struct CraftState {
     /// Multiply by synthesis action efficiency for increase in progress
-    pub progress_factor: f64,
+    pub progress_factor: f32,
     /// Multiply by touch action efficiency for increase in quality
-    pub quality_factor: f64,
+    pub quality_factor: f32,
     /// Current step number, starting from 1
     pub step: u8,
     pub progress: u32,
@@ -48,6 +48,8 @@ pub struct CraftState {
     pub cp: u32,
     pub cp_max: u32,
 
+    pub observe: bool,
+    pub next_combo: Option<Action>,
     pub buffs: Buffs,
 
     /// The action that led to this state
@@ -63,14 +65,14 @@ pub struct CraftState {
 
 impl CraftState {
     pub fn new(
-        progress_factor: f64,
-        quality_factor: f64,
+        progress_factor: f32,
+        quality_factor: f32,
         progress_target: u32,
         quality_target: u32,
         durability: u32,
         cp: u32,
     ) -> Self {
-        CraftState {
+        let mut state = Self {
             progress_factor,
             quality_factor,
             step: 1,
@@ -82,13 +84,23 @@ impl CraftState {
             durability_max: durability,
             cp,
             cp_max: cp,
+            observe: false,
+            next_combo: None,
             buffs: Buffs::new(),
             action: None,
             probability: 1.0,
             wins: 0.0,
             playouts: 0.0,
-            available_moves: ACTIONS.to_vec(),
-        }
+            available_moves: vec![],
+        };
+
+        state.determine_possible_moves();
+        state
+    }
+
+    /// TODO: Determine possible moves based on durability, cost, cp, buffs
+    pub fn determine_possible_moves(&mut self) {
+        self.available_moves = ACTIONS.to_vec();
     }
 
     pub fn is_terminating(&self) -> bool {
@@ -104,7 +116,7 @@ impl CraftState {
         }
     }
 
-    pub fn execute_action(&mut self, action: Action) -> Option<CraftState> {
+    pub fn execute_action(&mut self, action: Action) -> Option<Self> {
         if let Some(action) = self.pick_action(action) {
             let new_state = action.execute(self);
             Some(new_state)
@@ -124,7 +136,7 @@ impl CraftState {
         }
     }
 
-    pub fn execute_random_action(&mut self) -> Option<CraftState> {
+    pub fn execute_random_action(&mut self) -> Option<Self> {
         if let Some(random_action) = self.pick_random_action() {
             self.execute_action(random_action)
         } else {
