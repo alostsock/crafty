@@ -1,4 +1,4 @@
-use crafty_models::RecipeVariant;
+use recipe::Recipe;
 use serde::{de, Deserialize};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::fmt::Debug;
@@ -32,7 +32,7 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     // Process the recipe level table and create a lookup by recipe level
     let mut recipe_levels = HashMap::new();
 
-    for record in recipe_levels_csv.deserialize::<RecipeLevel>() {
+    for record in recipe_levels_csv.deserialize::<RecipeLevelRecord>() {
         let recipe_level = record?;
         recipe_levels.insert(recipe_level.recipe_level, recipe_level);
     }
@@ -46,11 +46,11 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     // Process the recipe table, and keep track of distinct recipe variants
     let mut distinct_recipe_variants = HashSet::new();
 
-    for record in recipes_csv.deserialize::<Recipe>() {
+    for record in recipes_csv.deserialize::<RecipeRecord>() {
         let recipe = record?;
         if recipe.can_hq {
             let base = recipe_levels.get(&recipe.recipe_level).unwrap();
-            let variant = RecipeVariant {
+            let variant = Recipe {
                 recipe_level: recipe.recipe_level,
                 job_level: base.job_level,
                 stars: base.stars,
@@ -77,7 +77,7 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
         let fourth = a.durability.cmp(&b.durability);
         first.then(second).then(third).then(fourth)
     });
-    let mut recipes_by_level: HashMap<u32, Vec<RecipeVariant>> = HashMap::new();
+    let mut recipes_by_level: HashMap<u32, Vec<Recipe>> = HashMap::new();
     for variant in recipe_variants {
         if let Entry::Vacant(entry) = recipes_by_level.entry(variant.job_level) {
             entry.insert(vec![variant]);
@@ -102,7 +102,7 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     let mut recipes_writer = BufWriter::new(File::create(&out_path).unwrap());
     writeln!(
         recipes_writer,
-        "static RECIPES: phf::Map<u32, &'static [RecipeVariant]> = {};\n",
+        "static RECIPES: phf::Map<u32, &'static [Recipe]> = {};\n",
         recipes.build()
     )?;
 
@@ -117,7 +117,7 @@ fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
     // Process the level table
     let mut recipe_level_by_job_level = HashMap::new();
 
-    for record in levels_csv.deserialize::<Levels>() {
+    for record in levels_csv.deserialize::<LevelRecord>() {
         let level = record?;
         recipe_level_by_job_level.insert(level.job_level, level.recipe_level);
     }
@@ -143,14 +143,14 @@ fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct Levels {
+struct LevelRecord {
     job_level: u32,
     recipe_level: u32,
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct Recipe {
+struct RecipeRecord {
     #[serde(rename = "RecipeLevelTable")]
     recipe_level: u32,
 
@@ -180,7 +180,7 @@ struct Recipe {
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
-struct RecipeLevel {
+struct RecipeLevelRecord {
     #[serde(rename = "#")]
     recipe_level: u32,
 

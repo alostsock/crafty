@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+// Must be separate from the `core` crate so it can be used in `core/build.rs`
+
 #[derive(Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
-pub struct RecipeVariant {
+pub struct Recipe {
     pub recipe_level: u32,
     pub job_level: u32,
     pub stars: u32,
@@ -17,7 +19,7 @@ pub struct RecipeVariant {
     pub conditions_flag: u32,
 }
 
-impl fmt::Display for RecipeVariant {
+impl fmt::Display for Recipe {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let stars = (0..self.stars).map(|_| "★").collect::<String>();
         write!(

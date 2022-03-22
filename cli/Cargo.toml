@@ -1,13 +1,13 @@
 [package]
-name = "crafty_cli"
+name = "cli"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crafty = { path = "../crafty" }
-crafty_models = { path = "../crafty_models" }
+core = { path = "../core" }
+recipe = { path = "../recipe" }
 anyhow = "1.0.52"
 structopt = "0.3.25"
 dialoguer = "0.8.0"

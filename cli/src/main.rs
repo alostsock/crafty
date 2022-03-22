@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use crafty::{player::Player, recipes::recipes_by_level, simulator::Simulator};
+use core::{player::Player, recipes::recipes_by_level, simulator::Simulator};
 use dialoguer::{console::Style, theme::ColorfulTheme, Input, Select};
 use structopt::StructOpt;
 

@@ -1,8 +1,8 @@
 [workspace]
 
 members = [
-  "crafty",
-  "crafty_models",
-  "crafty_cli",
-  "crafty_web"
+  "core",
+  "recipe",
+  "cli",
+  "web"
 ]

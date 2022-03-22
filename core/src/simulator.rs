@@ -2,7 +2,7 @@ use crate::action::Action;
 use crate::craft_state::CraftState;
 use crate::player::Player;
 use crate::tree::Arena;
-use crafty_models::RecipeVariant;
+use recipe::Recipe;
 
 include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 
@@ -11,7 +11,7 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    fn calculate_factors(player: &Player, recipe: &RecipeVariant) -> (f32, f32) {
+    fn calculate_factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
 
         let progress_div = recipe.progress_div as f32;
@@ -30,7 +30,7 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    pub fn new(recipe: &RecipeVariant, player: &Player) -> Self {
+    pub fn new(recipe: &Recipe, player: &Player) -> Self {
         let (progress_factor, quality_factor) = Simulator::calculate_factors(player, recipe);
         let initial_state = CraftState::new(
             progress_factor,
@@ -81,10 +81,10 @@ impl Simulator {
 mod tests {
     use crate::craft_state::CraftState;
 
-    use super::{Action, Player, RecipeVariant, Simulator};
+    use super::{Action, Player, Recipe, Simulator};
 
     fn setup_sim() -> Simulator {
-        let recipe = RecipeVariant {
+        let recipe = Recipe {
             recipe_level: 560,
             job_level: 90,
             stars: 0,
