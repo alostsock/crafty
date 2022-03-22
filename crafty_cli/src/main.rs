@@ -1,14 +1,11 @@
 use anyhow::{anyhow, Context, Result};
-use crafty::{player::Player, simulator::Simulator};
-use crafty_models::RecipeVariant;
+use crafty::{player::Player, recipes::recipes_by_level, simulator::Simulator};
 use dialoguer::{console::Style, theme::ColorfulTheme, Input, Select};
 use structopt::StructOpt;
 
-include!(concat!(env!("OUT_DIR"), "/recipes.rs"));
-
 #[derive(Debug, StructOpt)]
 #[structopt(name = "crafty")]
-/// a ffxiv crafting optimization tool
+/// a ffxiv crafting tool
 struct CliArgs {
     /// the player's job level
     job_level: u32,
@@ -39,7 +36,7 @@ fn main() -> Result<()> {
         .validate_with(|input: &u32| is_between(input, 1, 90, "recipe level"))
         .interact_text()?;
 
-    let possible_recipes = RECIPES.get(&recipe_job_level).unwrap();
+    let possible_recipes = recipes_by_level(recipe_job_level);
 
     let recipe = prompt_selection(possible_recipes, "recipe variant?")?;
 

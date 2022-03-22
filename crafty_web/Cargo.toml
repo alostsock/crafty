@@ -1,0 +1,22 @@
+[package]
+name = "crafty_web"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crafty = { path = "../crafty" }
+crafty_models = { path = "../crafty_models" }
+serde = { version = "1.0.132", features = ["derive"] }
+wasm-bindgen = { version = "0.2.79", features= ["serde-serialize"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+lto = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O3']

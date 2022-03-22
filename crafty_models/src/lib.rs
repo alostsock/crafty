@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct RecipeVariant {
     pub recipe_level: u32,
     pub job_level: u32,

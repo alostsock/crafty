@@ -2,5 +2,7 @@
 
 members = [
   "crafty",
-  "crafty_models"
+  "crafty_models",
+  "crafty_cli",
+  "crafty_web"
 ]
