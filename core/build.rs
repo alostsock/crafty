@@ -141,7 +141,6 @@ fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct LevelRecord {
     job_level: u32,
@@ -178,7 +177,6 @@ struct RecipeRecord {
     is_expert: bool,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
 struct RecipeLevelRecord {
     #[serde(rename = "#")]
