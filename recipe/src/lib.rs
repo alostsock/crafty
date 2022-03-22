@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-// Must be separate from the `core` crate so it can be used in `core/build.rs`
+// Must be separate from the `crafty` crate so it can be used in `crafty/build.rs`
 
 #[derive(Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Recipe {

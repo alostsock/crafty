@@ -1,5 +1,5 @@
 #![allow(clippy::unused_unit)]
-use core::recipes::recipes_by_level;
+use crafty::recipes::recipes_by_level;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
