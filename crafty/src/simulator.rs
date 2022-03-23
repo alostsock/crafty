@@ -7,7 +7,7 @@ use recipe::Recipe;
 include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 
 pub struct Simulator {
-    tree: Arena<CraftState>,
+    pub tree: Arena<CraftState>,
 }
 
 impl Simulator {

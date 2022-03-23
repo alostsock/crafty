@@ -1,11 +1,11 @@
 use crate::craft_state::CraftState;
-use std::cmp;
+use std::{cmp, fmt};
 
 pub struct ActionAttributes {
-    progress_efficiency: Option<f32>,
-    quality_efficiency: Option<f32>,
-    durability_cost: Option<u32>,
-    cp_cost: Option<u32>,
+    pub progress_efficiency: Option<f32>,
+    pub quality_efficiency: Option<f32>,
+    pub durability_cost: Option<u32>,
+    pub cp_cost: Option<u32>,
     effect: Option<fn(&mut CraftState)>,
 }
 
@@ -163,14 +163,17 @@ fn apply_quality(state: &mut CraftState, efficiency: f32) {
     state.quality += (base * efficiency * modifier).floor() as u32;
 }
 
-fn apply_durability(state: &mut CraftState, cost: u32) {
-    let mut divider: u32 = 1;
-
+#[inline]
+pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
     if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
-        divider *= 2;
+        return base_cost / 2;
     }
+    base_cost
+}
 
-    let mut durability = state.durability - cost / divider;
+fn apply_durability(state: &mut CraftState, base_cost: u32) {
+    let cost = calc_durability_cost(state, base_cost);
+    let mut durability = state.durability - cost;
 
     if state.buffs.manipulation > 0 {
         durability += 5;
@@ -179,15 +182,18 @@ fn apply_durability(state: &mut CraftState, cost: u32) {
     state.durability = cmp::min(durability, state.durability_max)
 }
 
-fn apply_cp(state: &mut CraftState, cost: u32) {
-    let mut cost = cost;
-
+#[inline]
+pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
     if state.next_combo == Some(Action::StandardTouch)
         || state.next_combo == Some(Action::AdvancedTouch)
     {
-        cost = 18;
+        return 18;
     }
+    base_cost
+}
 
+fn apply_cp(state: &mut CraftState, base_cost: u32) {
+    let cost = calc_cp_cost(state, base_cost);
     state.cp = cmp::min(state.cp - cost, state.cp_max)
 }
 
@@ -238,5 +244,11 @@ impl Action {
         state.determine_possible_moves();
 
         state
+    }
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }

@@ -10,5 +10,5 @@ crafty = { path = "../crafty" }
 recipe = { path = "../recipe" }
 anyhow = "1.0.52"
 structopt = "0.3.25"
-dialoguer = "0.8.0"
+dialoguer = "0.10.0"
 ctrlc = "3.2.1"

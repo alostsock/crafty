@@ -1,5 +1,6 @@
-use crate::action::{Action, ACTIONS};
+use crate::action::{calc_cp_cost, calc_durability_cost, Action, ACTIONS};
 use rand::Rng;
+use std::fmt;
 
 #[derive(Default, Debug, Clone)]
 pub struct Buffs {
@@ -63,6 +64,23 @@ pub struct CraftState {
     pub available_moves: Vec<Action>,
 }
 
+impl fmt::Display for CraftState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:>5}/{:>5} progress | {:>5}/{:>5} quality | {:>2}/{:>2} durability | {:>3}/{:>3} cp",
+            self.progress,
+            self.progress_target,
+            self.quality,
+            self.quality_target,
+            self.durability,
+            self.durability_max,
+            self.cp,
+            self.cp_max
+        )
+    }
+}
+
 impl CraftState {
     pub fn new(
         progress_factor: f32,
@@ -98,11 +116,41 @@ impl CraftState {
         state
     }
 
-    /// TODO: Determine possible moves based on durability, cost, cp, buffs
+    /// Prune as many moves as possible to reduce the search space
     pub fn determine_possible_moves(&mut self) {
-        self.available_moves = ACTIONS.to_vec();
+        let mut available_moves = ACTIONS.to_vec();
+        available_moves.retain(|action| {
+            let attrs = action.attributes();
+
+            if let Some(base_cost) = attrs.cp_cost {
+                if calc_cp_cost(self, base_cost) > self.cp {
+                    return false;
+                }
+            }
+
+            use Action::*;
+            match action {
+                MuscleMemory | Reflect => self.step == 1,
+                Observe => !self.observe,
+                FocusedSynthesis | FocusedTouch => self.observe,
+                ByregotsBlessing => self.buffs.inner_quiet > 0,
+                TrainedFinesse => self.buffs.inner_quiet == 10,
+                Groundwork => {
+                    let cost = calc_durability_cost(self, attrs.durability_cost.unwrap());
+                    self.durability >= cost
+                }
+                PrudentSynthesis | PrudentTouch => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
+                _ => true,
+            }
+        });
+        self.available_moves = available_moves;
     }
 
+    /// TODO: to reduce further branching, add some lookaheads to determine if
+    /// the craft is even finishable in the current state; i.e. progress can be
+    /// fulfilled given the remaining durability and CP
     pub fn is_terminating(&self) -> bool {
         self.progress >= self.progress_target || self.durability == 0
     }
