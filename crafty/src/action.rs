@@ -106,7 +106,7 @@ create_actions!(
     FocusedSynthesis(progress 2.0, durability 10, cp 5,),
     FocusedTouch(quality 1.5, durability 10, cp 18,),
     Reflect(quality 1.0, durability 10, cp 6, effect |state| {
-        state.buffs.inner_quiet = 1; // only available on first step
+        state.buffs.inner_quiet += 1;
     }),
     PreparatoryTouch(quality 2.0, durability 20, cp 40,),
     Groundwork(progress 3.6, durability 20, cp 18,),
@@ -120,7 +120,8 @@ create_actions!(
     TrainedFinesse(quality 1.0, durability 10, cp 32,),
 );
 
-fn apply_progress(state: &mut CraftState, efficiency: f32) {
+#[inline]
+pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
     let base = state.progress_factor;
 
     let mut multiplier = 1.0;
@@ -129,13 +130,13 @@ fn apply_progress(state: &mut CraftState, efficiency: f32) {
     }
     if state.buffs.muscle_memory > 0 {
         multiplier += 1.0;
-        state.buffs.muscle_memory = 0;
     }
 
-    state.progress += (base * efficiency * multiplier).floor() as u32;
+    (base * efficiency * multiplier).floor() as u32
 }
 
-fn apply_quality(state: &mut CraftState, efficiency: f32) {
+#[inline]
+pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
     let base = state.quality_factor;
 
     let mut modifier = 1.0 + state.buffs.inner_quiet as f32 / 10.0;
@@ -146,21 +147,11 @@ fn apply_quality(state: &mut CraftState, efficiency: f32) {
     }
     if state.buffs.great_strides > 0 {
         multiplier += 1.0;
-        state.buffs.great_strides = 0;
     }
 
     modifier *= multiplier;
 
-    let mut efficiency = efficiency;
-
-    if state.action == Some(Action::ByregotsBlessing) {
-        efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
-        state.buffs.inner_quiet = 0;
-    } else {
-        state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
-    }
-
-    state.quality += (base * efficiency * modifier).floor() as u32;
+    (base * efficiency * modifier).floor() as u32
 }
 
 #[inline]
@@ -171,17 +162,6 @@ pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
     base_cost
 }
 
-fn apply_durability(state: &mut CraftState, base_cost: u32) {
-    let cost = calc_durability_cost(state, base_cost);
-    let mut durability = state.durability - cost;
-
-    if state.buffs.manipulation > 0 {
-        durability += 5;
-    }
-
-    state.durability = cmp::min(durability, state.durability_max)
-}
-
 #[inline]
 pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
     if state.next_combo == Some(Action::StandardTouch)
@@ -190,11 +170,6 @@ pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
         return 18;
     }
     base_cost
-}
-
-fn apply_cp(state: &mut CraftState, base_cost: u32) {
-    let cost = calc_cp_cost(state, base_cost);
-    state.cp = cmp::min(state.cp - cost, state.cp_max)
 }
 
 impl Action {
@@ -212,20 +187,33 @@ impl Action {
 
         let action = self.attributes();
 
-        if let Some(progress_efficiency) = action.progress_efficiency {
-            apply_progress(&mut state, progress_efficiency);
+        if let Some(efficiency) = action.progress_efficiency {
+            state.progress += calc_progress_increase(&state, efficiency);
+            state.buffs.muscle_memory = 0;
         }
 
-        if let Some(quality_efficiency) = action.quality_efficiency {
-            apply_quality(&mut state, quality_efficiency);
+        if let Some(efficiency) = action.quality_efficiency {
+            if self == Action::ByregotsBlessing {
+                let efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
+                state.quality += calc_quality_increase(&state, efficiency);
+                state.buffs.inner_quiet = 0;
+            } else {
+                state.quality += calc_quality_increase(&state, efficiency);
+                state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
+            }
+            state.buffs.great_strides = 0;
         }
 
-        if let Some(durability_cost) = action.durability_cost {
-            apply_durability(&mut state, durability_cost);
+        if let Some(base_cost) = action.durability_cost {
+            state.durability -= calc_durability_cost(&state, base_cost);
         }
 
-        if let Some(cp_cost) = action.cp_cost {
-            apply_cp(&mut state, cp_cost)
+        if state.buffs.manipulation > 0 {
+            state.durability = cmp::min(state.durability + 5, state.durability_max);
+        }
+
+        if let Some(base_cost) = action.cp_cost {
+            state.cp -= calc_cp_cost(&state, base_cost);
         }
 
         state.observe = false;

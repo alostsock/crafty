@@ -82,6 +82,7 @@ mod tests {
     use crate::craft_state::CraftState;
 
     use super::{Action, Player, Recipe, Simulator};
+    use Action::*;
 
     fn setup_sim() -> Simulator {
         let recipe = Recipe {
@@ -121,24 +122,47 @@ mod tests {
 
     #[test]
     fn basic_actions() {
-        let actions = vec![
-            Action::BasicTouch,
-            Action::BasicSynthesis,
-            Action::MastersMend,
-        ];
+        let actions = vec![BasicTouch, BasicSynthesis, MastersMend];
         assert_craft(&mut setup_sim(), actions, 276, 262, 80, 469);
     }
 
     #[test]
     fn basic_touch_combo() {
         let actions = vec![
-            Action::Innovation,
-            Action::BasicTouch,
-            Action::StandardTouch,
-            Action::AdvancedTouch,
-            Action::StandardTouch,
-            Action::AdvancedTouch,
+            Innovation,
+            BasicTouch,
+            StandardTouch,
+            AdvancedTouch,
+            StandardTouch,
+            AdvancedTouch,
         ];
         assert_craft(&mut setup_sim(), actions, 0, 2828, 30, 425);
+    }
+
+    #[test]
+    fn with_buffs_1() {
+        let actions = vec![Reflect, Manipulation, PreparatoryTouch, WasteNotII];
+        assert_craft(&mut setup_sim(), actions, 0, 890, 60, 335);
+    }
+
+    #[test]
+    fn with_buffs_2() {
+        let actions = vec![MuscleMemory, GreatStrides, PrudentTouch, DelicateSynthesis];
+        assert_craft(&mut setup_sim(), actions, 1150, 812, 55, 480);
+    }
+
+    #[test]
+    fn with_buffs_3() {
+        let actions = vec![
+            MuscleMemory,
+            Manipulation,
+            MastersMend,
+            WasteNotII,
+            Innovation,
+            DelicateSynthesis,
+            GreatStrides,
+            ByregotsBlessing,
+        ];
+        assert_craft(&mut setup_sim(), actions, 1150, 1257, 80, 181);
     }
 }
