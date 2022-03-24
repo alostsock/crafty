@@ -131,16 +131,19 @@ impl CraftState {
             use Action::*;
             match action {
                 MuscleMemory | Reflect => self.step == 1,
-                Observe => !self.observe,
-                FocusedSynthesis | FocusedTouch => self.observe,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
+                PrudentSynthesis | PrudentTouch => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
+                // don't allow observe if observing
+                Observe => !self.observe,
+                // only allow focused skills if observing
+                FocusedSynthesis | FocusedTouch => self.observe,
+                // don't allow downgraded groundwork
                 Groundwork => {
                     let cost = calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
-                }
-                PrudentSynthesis | PrudentTouch => {
-                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
                 _ => true,
             }
@@ -155,17 +158,9 @@ impl CraftState {
         self.progress >= self.progress_target || self.durability == 0
     }
 
-    fn pick_action(&mut self, action: Action) -> Option<Action> {
-        if let Some(picked_index) = self.available_moves.iter().position(|&m| m == action) {
-            self.available_moves.swap_remove(picked_index);
-            Some(action)
-        } else {
-            None
-        }
-    }
-
     pub fn execute_action(&mut self, action: Action) -> Option<Self> {
-        if let Some(action) = self.pick_action(action) {
+        if let Some(picked_index) = self.available_moves.iter().position(|&m| m == action) {
+            let action = self.available_moves.swap_remove(picked_index);
             let new_state = action.execute(self);
             Some(new_state)
         } else {
@@ -173,22 +168,10 @@ impl CraftState {
         }
     }
 
-    fn pick_random_action(&mut self) -> Option<Action> {
+    pub fn execute_random_action(&mut self) -> Self {
         let mut rng = rand::thread_rng();
         let random_index = rng.gen_range(0..self.available_moves.len());
-        if let Some(random_action) = self.available_moves.get(random_index).cloned() {
-            self.available_moves.swap_remove(random_index);
-            Some(random_action)
-        } else {
-            None
-        }
-    }
-
-    pub fn execute_random_action(&mut self) -> Option<Self> {
-        if let Some(random_action) = self.pick_random_action() {
-            self.execute_action(random_action)
-        } else {
-            None
-        }
+        let random_action = self.available_moves.swap_remove(random_index);
+        random_action.execute(self)
     }
 }
