@@ -137,6 +137,12 @@ pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
 pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
     let base = state.quality_factor;
 
+    let mut efficiency = efficiency;
+
+    if state.action == Some(Action::ByregotsBlessing) {
+        efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
+    }
+
     let mut modifier = 1.0 + state.buffs.inner_quiet as f32 / 10.0;
 
     let mut multiplier = 1.0;
@@ -189,12 +195,10 @@ impl Action {
         }
 
         if let Some(efficiency) = action.quality_efficiency {
+            state.quality += calc_quality_increase(&state, efficiency);
             if self == Action::ByregotsBlessing {
-                let efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
-                state.quality += calc_quality_increase(&state, efficiency);
                 state.buffs.inner_quiet = 0;
             } else {
-                state.quality += calc_quality_increase(&state, efficiency);
                 state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
             }
             state.buffs.great_strides = 0;
