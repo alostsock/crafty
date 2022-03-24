@@ -51,7 +51,7 @@ impl Simulator {
         for action in actions {
             let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
             if let Some(new_state) = current_state.execute_action(action) {
-                let next_node = self.tree.insert(current_node, new_state).unwrap();
+                let next_node = self.tree.insert(current_node, new_state);
                 current_node = next_node;
             } else {
                 break;
@@ -67,7 +67,7 @@ impl Simulator {
             let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
 
             if let Some(new_state) = current_state.execute_random_action() {
-                let next_node = self.tree.insert(current_node, new_state).unwrap();
+                let next_node = self.tree.insert(current_node, new_state);
                 current_node = next_node;
             } else {
                 break;

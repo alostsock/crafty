@@ -1,5 +1,3 @@
-use anyhow::{Context, Result};
-
 pub struct Arena<T> {
     nodes: Vec<Node<T>>,
 }
@@ -18,7 +16,7 @@ impl<T> Arena<T> {
         }
     }
 
-    pub fn insert(&mut self, parent_index: usize, state: T) -> Result<usize> {
+    pub fn insert(&mut self, parent_index: usize, state: T) -> usize {
         let index = self.nodes.len();
         let node = Node {
             parent: Some(parent_index),
@@ -26,21 +24,17 @@ impl<T> Arena<T> {
             children: vec![],
             state,
         };
-        self.get_mut(parent_index)?.children.push(index);
+        self.get_mut(parent_index).unwrap().children.push(index);
         self.nodes.push(node);
-        Ok(index)
+        index
     }
 
-    pub fn get(&self, index: usize) -> Result<&Node<T>> {
-        self.nodes
-            .get(index)
-            .context(format!("no node with index {}", index))
+    pub fn get(&self, index: usize) -> Option<&Node<T>> {
+        self.nodes.get(index)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Result<&mut Node<T>> {
-        self.nodes
-            .get_mut(index)
-            .context(format!("no node with index {}", index))
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Node<T>> {
+        self.nodes.get_mut(index)
     }
 }
 
@@ -69,7 +63,7 @@ mod tests {
 
         assert_eq!(arena.get(0).unwrap().children.len(), 0);
 
-        let index_b = arena.insert(0, "b").unwrap();
+        let index_b = arena.insert(0, "b");
 
         assert_eq!(arena.nodes.len(), 2);
         assert_eq!(arena.get(index_b).unwrap().state, "b");

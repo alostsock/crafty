@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 recipe = { path = "../recipe" }
 phf = "0.10.0"
-anyhow = "1.0.52"
 rand = "0.8.4"
 
 [build-dependencies]
@@ -19,6 +18,7 @@ serde = { version = "1.0.132", features = ["derive"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
+pprof = { version = "0.7", features = ["criterion", "flamegraph"] }
 
 [[bench]]
 name = "benchmark"
