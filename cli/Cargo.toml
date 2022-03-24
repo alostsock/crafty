@@ -9,6 +9,6 @@ edition = "2021"
 crafty = { path = "../crafty" }
 recipe = { path = "../recipe" }
 anyhow = "1.0.52"
-structopt = "0.3.25"
+clap = { version = "3.1", features = ["derive"] }
 dialoguer = "0.10.0"
 ctrlc = "3.2.1"

@@ -1,23 +1,27 @@
 use anyhow::{anyhow, Context, Result};
+use clap::Parser;
 use crafty::{player::Player, recipes::recipes_by_level, simulator::Simulator};
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
     Input, Select,
 };
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "crafty")]
-/// a ffxiv crafting tool
-struct CliArgs {
-    /// the player's job level
+/// A ffxiv crafting tool
+#[derive(Parser, Debug)]
+#[clap(name = "crafty", bin_name = "crafty")]
+struct Args {
+    /// The player's job level
+    #[clap(index = 1)]
     job_level: u32,
-    /// the player's craftsmanship stat
+    /// The player's craftsmanship stat
+    #[clap(index = 2)]
     craftsmanship: u32,
-    /// the player's control stat
+    /// The player's control stat
+    #[clap(index = 3)]
     control: u32,
-    /// the player's cp stat
+    /// The player's cp stat
+    #[clap(index = 4)]
     cp: u32,
 }
 
@@ -27,7 +31,7 @@ fn main() -> Result<()> {
         let _ = term.show_cursor();
     })?;
 
-    let args = CliArgs::from_args();
+    let args = Args::parse();
 
     is_between(&args.job_level, 1, 90, "job level")?;
     is_between(&args.craftsmanship, 1, 5000, "craftsmanship")?;
