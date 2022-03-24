@@ -120,7 +120,6 @@ create_actions!(
     TrainedFinesse(quality 1.0, durability 10, cp 32,),
 );
 
-#[inline]
 pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
     let base = state.progress_factor;
 
@@ -135,7 +134,6 @@ pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
     (base * efficiency * multiplier).floor() as u32
 }
 
-#[inline]
 pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
     let base = state.quality_factor;
 
@@ -154,7 +152,6 @@ pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
     (base * efficiency * modifier).floor() as u32
 }
 
-#[inline]
 pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
     if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
         return base_cost / 2;
@@ -162,7 +159,6 @@ pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
     base_cost
 }
 
-#[inline]
 pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
     if state.next_combo == Some(Action::StandardTouch)
         || state.next_combo == Some(Action::AdvancedTouch)
