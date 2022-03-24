@@ -15,7 +15,11 @@ rand = "0.8.4"
 recipe = { path = "../recipe" }
 csv = "1.1.6"
 phf_codegen = "0.10.0"
+serde = { version = "1.0.132", features = ["derive"] }
 
-[build-dependencies.serde]
-version = "1.0.132"
-features = ["derive"]
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+
+[[bench]]
+name = "benchmark"
+harness = false
