@@ -6,3 +6,7 @@ members = [
   "cli",
   "web"
 ]
+
+[profile.release]
+lto = "fat"
+debug = true

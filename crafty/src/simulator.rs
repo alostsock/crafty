@@ -1,7 +1,7 @@
 use crate::action::Action;
 use crate::craft_state::{CraftResult, CraftState};
 use crate::player::Player;
-use crate::tree::Arena;
+use crate::tree::{Arena, Node};
 use recipe::Recipe;
 
 include!(concat!(env!("OUT_DIR"), "/levels.rs"));
@@ -47,6 +47,14 @@ impl Simulator {
         }
     }
 
+    fn node(&self, node: usize) -> &Node<CraftState> {
+        self.tree.get(node).unwrap()
+    }
+
+    fn node_mut(&mut self, node: usize) -> &mut Node<CraftState> {
+        self.tree.get_mut(node).unwrap()
+    }
+
     pub fn execute_actions(
         &mut self,
         node: usize,
@@ -54,7 +62,7 @@ impl Simulator {
     ) -> Result<usize, CraftResult> {
         let mut current_node = node;
         for action in actions {
-            let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
+            let current_state = &mut self.node_mut(current_node).state;
 
             if let Some(result) = current_state.check_result() {
                 return Err(result);
@@ -67,12 +75,28 @@ impl Simulator {
         Ok(current_node)
     }
 
-    fn select(&self, node: usize) {}
+    fn ucb1(&self, state: &CraftState, parent_visits: f64) -> f64 {
+        // average reward
+        let visits = state.visits as f64;
+        let exploitation = state.score_sum / visits;
+        let exploration = (2.0 * parent_visits.ln() / visits).sqrt();
+        exploitation + exploration
+    }
+
+    fn select(&self, node: usize) -> Option<&usize> {
+        let parent = self.node(node);
+        let parent_visits = parent.state.visits;
+        parent.children.iter().max_by(|a, b| {
+            let a_reward = self.ucb1(&self.node(**a).state, parent_visits);
+            let b_reward = self.ucb1(&self.node(**b).state, parent_visits);
+            a_reward.partial_cmp(&b_reward).unwrap()
+        })
+    }
 
     fn expand(&mut self, node: usize) -> (usize, CraftResult) {
         let mut current_node = node;
         loop {
-            let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
+            let current_state = &mut self.node_mut(current_node).state;
 
             if let Some(result) = current_state.check_result() {
                 return (current_node, result);
@@ -84,9 +108,9 @@ impl Simulator {
         }
     }
 
-    fn backup(&mut self, node: usize, target_node: usize) {}
+    // fn backup(&mut self, node: usize, target_node: usize) {}
 
-    pub fn search(&mut self, node: usize) {}
+    // pub fn search(&mut self, node: usize) {}
 }
 
 #[cfg(test)]
@@ -123,8 +147,10 @@ mod tests {
         durability: u32,
         cp: u32,
     ) -> &CraftState {
-        let result_node = sim.execute_actions(0, actions).unwrap();
-        let result = &sim.tree.get(result_node).unwrap().state;
+        let result_node = sim
+            .execute_actions(0, actions)
+            .expect("craft finished unexpectedly");
+        let result = &sim.node(result_node).state;
         assert_eq!(result.progress, progress);
         assert_eq!(result.quality, quality);
         assert_eq!(result.durability, durability);
@@ -176,5 +202,28 @@ mod tests {
             ByregotsBlessing,
         ];
         assert_craft(&mut setup_sim(), actions, 1150, 1257, 80, 181);
+    }
+
+    #[test]
+    fn should_not_panic() {
+        let actions = vec![
+            Reflect,
+            Manipulation,
+            PreparatoryTouch,
+            WasteNotII,
+            PreparatoryTouch,
+            Innovation,
+            PreparatoryTouch,
+            PreparatoryTouch,
+            GreatStrides,
+            ByregotsBlessing,
+            Veneration,
+            Groundwork,
+            Groundwork,
+            Groundwork,
+        ];
+        let mut sim = setup_sim();
+        sim.execute_actions(0, actions)
+            .expect("craft finished unexpectedly");
     }
 }

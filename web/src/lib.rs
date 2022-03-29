@@ -2,6 +2,9 @@
 use crafty::recipes::recipes_by_level;
 use wasm_bindgen::{prelude::*, JsCast};
 
+// TODO: Create a proc derive macro that somehow serializes Rust structs into
+// Typescript type definitions
+
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
 

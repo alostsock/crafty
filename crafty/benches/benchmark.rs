@@ -1,5 +1,5 @@
 use crafty::{action::Action, player::Player, simulator::Simulator};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use recipe::Recipe;
 use Action::*;
@@ -25,28 +25,31 @@ fn setup_sim() -> Simulator {
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("basic rotation", |b| {
-        let sim = &mut setup_sim();
-        b.iter(|| {
-            sim.execute_actions(
-                black_box(0),
-                black_box(vec![
-                    Reflect,
-                    Manipulation,
-                    PreparatoryTouch,
-                    WasteNotII,
-                    PreparatoryTouch,
-                    Innovation,
-                    PreparatoryTouch,
-                    PreparatoryTouch,
-                    GreatStrides,
-                    ByregotsBlessing,
-                    Veneration,
-                    Groundwork,
-                    Groundwork,
-                    Groundwork,
-                ]),
-            )
-        })
+        b.iter_batched(
+            || -> Simulator { setup_sim() },
+            |mut sim| {
+                sim.execute_actions(
+                    black_box(0),
+                    black_box(vec![
+                        Reflect,
+                        Manipulation,
+                        PreparatoryTouch,
+                        WasteNotII,
+                        PreparatoryTouch,
+                        Innovation,
+                        PreparatoryTouch,
+                        PreparatoryTouch,
+                        GreatStrides,
+                        ByregotsBlessing,
+                        Veneration,
+                        Groundwork,
+                        Groundwork,
+                        Groundwork,
+                    ]),
+                )
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
