@@ -9,4 +9,3 @@ members = [
 
 [profile.release]
 lto = "fat"
-debug = true
