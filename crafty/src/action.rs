@@ -180,9 +180,9 @@ impl Action {
             step: prev_state.step + 1,
             buffs: prev_state.buffs.clone(),
             action: Some(self),
-            probability: 1.0,
-            wins: 0.0,
-            playouts: 0.0,
+            prior: 1.0,
+            score_sum: 0.0,
+            visits: 0.0,
             available_moves: vec![],
             ..*prev_state
         };

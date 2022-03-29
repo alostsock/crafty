@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use crafty::{player::Player, recipes::recipes_by_level, simulator::Simulator};
+use crafty::{
+    craft_state::CraftResult, player::Player, recipes::recipes_by_level, simulator::Simulator,
+};
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
@@ -62,15 +64,24 @@ fn main() -> Result<()> {
             cyan(state.to_string().as_str())
         );
 
-        if state.is_terminating() {
-            break;
-        }
-
         let mut options = state.available_moves.clone();
         options.sort_by_key(|k| format!("{}", k));
         let action = *prompt_selection("action?:", &options)?;
 
-        node = sim.execute_actions(node, vec![action]);
+        match sim.execute_actions(node, vec![action]) {
+            Ok(next_node) => node = next_node,
+            Err(CraftResult::Finished(score)) => {
+                println!(
+                    "\nThe craft finished with a score of {}.",
+                    green(score.to_string().as_str())
+                );
+                break;
+            }
+            Err(CraftResult::Failed) => {
+                println!("{}", red("\nThe craft has failed."));
+                break;
+            }
+        }
     }
 
     Ok(())
@@ -82,11 +93,6 @@ fn is_between(value: &u32, min: u32, max: u32, label: &str) -> Result<()> {
     } else {
         Err(anyhow!("{} should be between {} and {}", label, min, max))
     }
-}
-
-fn cyan(s: &str) -> StyledObject<&str> {
-    let cyan = Style::new().green();
-    cyan.apply_to(s)
 }
 
 fn prompt_selection<'a, T>(prompt: &str, items: &'a [T]) -> Result<&'a T>
@@ -105,4 +111,16 @@ where
     } else {
         Ok(&items[0])
     }
+}
+
+fn cyan(s: &str) -> StyledObject<&str> {
+    Style::new().cyan().apply_to(s)
+}
+
+fn green(s: &str) -> StyledObject<&str> {
+    Style::new().green().apply_to(s)
+}
+
+fn red(s: &str) -> StyledObject<&str> {
+    Style::new().red().apply_to(s)
 }

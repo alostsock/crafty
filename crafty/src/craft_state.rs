@@ -2,6 +2,14 @@ use crate::action::{calc_cp_cost, calc_durability_cost, Action, ACTIONS};
 use rand::Rng;
 use std::fmt;
 
+#[derive(Debug)]
+pub enum CraftResult {
+    /// Reached 100% progress. Include a score based on quality and steps
+    Finished(f64),
+    /// Failed either because of durability loss or the step limit was reached
+    Failed,
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Buffs {
     pub inner_quiet: u8,
@@ -55,12 +63,12 @@ pub struct CraftState {
 
     /// The action that led to this state
     pub action: Option<Action>,
-    /// The probability that this state occurs (action chance * condition chance)
-    pub probability: f64,
-    /// Number of wins based on weighted outcomes from this node onward
-    pub wins: f64,
-    /// Number of playouts based on weighted outcomes from this node onward
-    pub playouts: f64,
+    /// The probability that this state will occur (action chance * condition chance)
+    pub prior: f64,
+    /// Sum of scores from this node onward
+    pub score_sum: f64,
+    /// Number of times this node has been visited
+    pub visits: f64,
     pub available_moves: Vec<Action>,
 }
 
@@ -106,9 +114,9 @@ impl CraftState {
             next_combo: None,
             buffs: Buffs::new(),
             action: None,
-            probability: 1.0,
-            wins: 0.0,
-            playouts: 0.0,
+            prior: 1.0,
+            score_sum: 0.0,
+            visits: 0.0,
             available_moves: vec![],
         };
 
@@ -151,21 +159,31 @@ impl CraftState {
         self.available_moves = available_moves;
     }
 
-    /// TODO: to reduce further branching, add some lookaheads to determine if
-    /// the craft is even finishable in the current state; i.e. progress can be
-    /// fulfilled given the remaining durability and CP
-    pub fn is_terminating(&self) -> bool {
-        self.progress >= self.progress_target || self.durability == 0
+    pub fn score(&self) -> f64 {
+        // cap quality at 1.0
+        let quality_ratio = 1.0_f64.min((self.quality / self.quality_target) as f64);
+        // the lower the step count, the better
+        quality_ratio - (self.step as f64 / 10.0)
     }
 
-    pub fn execute_action(&mut self, action: Action) -> Option<Self> {
-        if let Some(picked_index) = self.available_moves.iter().position(|&m| m == action) {
-            let action = self.available_moves.swap_remove(picked_index);
-            let new_state = action.execute(self);
-            Some(new_state)
+    pub fn check_result(&self) -> Option<CraftResult> {
+        if self.progress >= self.progress_target {
+            Some(CraftResult::Finished(self.score()))
+        } else if self.durability == 0 {
+            Some(CraftResult::Failed)
         } else {
             None
         }
+    }
+
+    pub fn execute_action(&mut self, action: Action) -> Self {
+        let picked_index = self
+            .available_moves
+            .iter()
+            .position(|&m| m == action)
+            .unwrap();
+        let action = self.available_moves.swap_remove(picked_index);
+        action.execute(self)
     }
 
     pub fn execute_random_action(&mut self) -> Self {

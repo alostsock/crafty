@@ -1,5 +1,5 @@
 use crate::action::Action;
-use crate::craft_state::CraftState;
+use crate::craft_state::{CraftResult, CraftState};
 use crate::player::Player;
 use crate::tree::Arena;
 use recipe::Recipe;
@@ -10,6 +10,7 @@ pub struct Simulator {
     pub tree: Arena<CraftState>,
 }
 
+#[allow(dead_code)]
 impl Simulator {
     fn calculate_factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
@@ -46,36 +47,46 @@ impl Simulator {
         }
     }
 
-    pub fn execute_actions(&mut self, node: usize, actions: Vec<Action>) -> usize {
+    pub fn execute_actions(
+        &mut self,
+        node: usize,
+        actions: Vec<Action>,
+    ) -> Result<usize, CraftResult> {
         let mut current_node = node;
         for action in actions {
             let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
-            if let Some(new_state) = current_state.execute_action(action) {
-                let next_node = self.tree.insert(current_node, new_state);
-                current_node = next_node;
-            } else {
-                break;
+
+            if let Some(result) = current_state.check_result() {
+                return Err(result);
             }
+
+            let new_state = current_state.execute_action(action);
+            let next_node = self.tree.insert(current_node, new_state);
+            current_node = next_node;
         }
-        current_node
+        Ok(current_node)
     }
 
-    // expand a node to the end, and return the final node's index
-    pub fn expand(&mut self, node: usize) -> usize {
+    fn select(&self, node: usize) {}
+
+    fn expand(&mut self, node: usize) -> (usize, CraftResult) {
         let mut current_node = node;
         loop {
             let current_state = &mut self.tree.get_mut(current_node).unwrap().state;
 
-            if current_state.is_terminating() {
-                break;
+            if let Some(result) = current_state.check_result() {
+                return (current_node, result);
             }
 
             let new_state = current_state.execute_random_action();
             let next_node = self.tree.insert(current_node, new_state);
             current_node = next_node;
         }
-        current_node
     }
+
+    fn backup(&mut self, node: usize, target_node: usize) {}
+
+    pub fn search(&mut self, node: usize) {}
 }
 
 #[cfg(test)]
@@ -112,7 +123,7 @@ mod tests {
         durability: u32,
         cp: u32,
     ) -> &CraftState {
-        let result_node = sim.execute_actions(0, actions);
+        let result_node = sim.execute_actions(0, actions).unwrap();
         let result = &sim.tree.get(result_node).unwrap().state;
         assert_eq!(result.progress, progress);
         assert_eq!(result.quality, quality);
