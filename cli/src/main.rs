@@ -6,8 +6,9 @@ use crafty::{
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
-    Input, Select,
+    Confirm, Input, Select,
 };
+use std::time;
 
 /// A ffxiv crafting tool
 #[derive(Parser, Debug)]
@@ -41,7 +42,7 @@ fn main() -> Result<()> {
     is_between(&args.cp, 1, 700, "cp")?;
 
     let player = Player::new(args.job_level, args.craftsmanship, args.control, args.cp);
-    println!("\n  player stats: {}", cyan(player.to_string().as_str()));
+    println!("\n  player stats: {}\n", green(player.to_string().as_str()));
 
     let recipe_job_level: u32 = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("recipe level? (1-90)")
@@ -54,33 +55,77 @@ fn main() -> Result<()> {
 
     let mut sim = Simulator::new(recipe, &player);
 
-    let mut node = 0;
+    let max_iterations: usize = 1_000_000;
+    let max_steps: u8 = 15;
+
+    let mut current_node = 0;
     loop {
-        let state = &sim.tree.get_mut(node).unwrap().state;
+        let state = &sim.node_mut(current_node).state;
 
         println!(
             "\n  step {:>2}: {}",
             state.step,
-            cyan(state.to_string().as_str())
+            green(state.to_string().as_str())
         );
 
-        let mut options = state.available_moves.clone();
-        options.sort_by_key(|k| format!("{}", k));
-        let action = *prompt_selection("action?:", &options)?;
+        if Confirm::new()
+            .with_prompt("  continue manually?")
+            .interact()?
+        {
+            // manually pick an action
+            let mut actions = state.available_moves.clone();
+            actions.sort_by_key(|k| format!("{}", k));
+            let action = *prompt_selection("action?:", &actions)?;
 
-        match sim.execute_actions(node, vec![action]) {
-            Ok(next_node) => node = next_node,
-            Err(CraftResult::Finished(score)) => {
-                println!(
-                    "\nThe craft finished with a score of {}.",
-                    green(score.to_string().as_str())
-                );
-                break;
+            match sim.execute_actions(current_node, vec![action], max_steps) {
+                Ok(next_node) => current_node = next_node,
+                Err(CraftResult::Finished(score)) => {
+                    println!(
+                        "\nThe craft finished with a score of {}.",
+                        green(score.to_string().as_str())
+                    );
+                    break;
+                }
+                Err(CraftResult::Failed) => {
+                    println!("{}", red("\nThe craft has failed."));
+                    break;
+                }
             }
-            Err(CraftResult::Failed) => {
-                println!("{}", red("\nThe craft has failed."));
-                break;
+        } else {
+            println!("{}", cyan("\n  attempting to find the best path..."));
+
+            let instant = time::Instant::now();
+            sim.search(current_node, max_iterations, max_steps);
+            let elapsed = instant.elapsed().as_secs();
+
+            let (actions, end_state) = sim.solution();
+
+            println!(
+                "{}",
+                cyan(format!("  completed in {} seconds.", elapsed).as_str())
+            );
+            println!(
+                "\n  step {:>2}: {}",
+                end_state.step,
+                green(end_state.to_string().as_str()),
+            );
+            println!("{}", cyan("\n  actions taken:"));
+            for action in actions {
+                println!("  {:?}", action);
             }
+
+            println!(
+                "\n  {}",
+                cyan(
+                    format!(
+                        "states analyzed: {}, max score: {}",
+                        sim.tree.nodes.len(),
+                        end_state.max_score
+                    )
+                    .as_str()
+                )
+            );
+            break;
         }
     }
 

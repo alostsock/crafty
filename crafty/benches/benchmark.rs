@@ -23,30 +23,37 @@ fn setup_sim() -> Simulator {
     Simulator::new(&recipe, &player)
 }
 
+const ACTIONS: &[Action] = &[
+    Reflect,
+    Manipulation,
+    PreparatoryTouch,
+    WasteNotII,
+    PreparatoryTouch,
+    Innovation,
+    PreparatoryTouch,
+    PreparatoryTouch,
+    GreatStrides,
+    ByregotsBlessing,
+    Veneration,
+    Groundwork,
+    Groundwork,
+    Groundwork,
+];
+
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("basic rotation", |b| {
         b.iter_batched(
             || -> Simulator { setup_sim() },
+            |mut sim| sim.execute_actions(black_box(0), black_box(ACTIONS.to_vec()), black_box(20)),
+            BatchSize::SmallInput,
+        )
+    });
+
+    c.bench_function("basic exploration", |b| {
+        b.iter_batched(
+            || -> Simulator { setup_sim() },
             |mut sim| {
-                sim.execute_actions(
-                    black_box(0),
-                    black_box(vec![
-                        Reflect,
-                        Manipulation,
-                        PreparatoryTouch,
-                        WasteNotII,
-                        PreparatoryTouch,
-                        Innovation,
-                        PreparatoryTouch,
-                        PreparatoryTouch,
-                        GreatStrides,
-                        ByregotsBlessing,
-                        Veneration,
-                        Groundwork,
-                        Groundwork,
-                        Groundwork,
-                    ]),
-                )
+                sim.search(black_box(0), black_box(50_000), black_box(20));
             },
             BatchSize::SmallInput,
         )
@@ -55,7 +62,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
 criterion_group!(
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    config = Criterion::default().with_profiler(PProfProfiler::new(997, Output::Flamegraph(None)));
     targets = criterion_benchmark
 );
 criterion_main!(benches);

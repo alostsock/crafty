@@ -1,5 +1,5 @@
 use crate::action::{calc_cp_cost, calc_durability_cost, Action, ACTIONS};
-use rand::Rng;
+use rand::prelude::Rng;
 use std::fmt;
 
 #[derive(Debug)]
@@ -67,6 +67,8 @@ pub struct CraftState {
     pub prior: f64,
     /// Sum of scores from this node onward
     pub score_sum: f64,
+    /// Maximum score that can be obtained by following this node
+    pub max_score: f64,
     /// Number of times this node has been visited
     pub visits: f64,
     pub available_moves: Vec<Action>,
@@ -116,6 +118,7 @@ impl CraftState {
             action: None,
             prior: 1.0,
             score_sum: 0.0,
+            max_score: 0.0,
             visits: 0.0,
             available_moves: vec![],
         };
@@ -124,10 +127,12 @@ impl CraftState {
         state
     }
 
-    /// Prune as many moves as possible to reduce the search space
+    /// Prune as many moves as possible to reduce the search space; adding some
+    /// bias to improve move selection should be OK.
     pub fn determine_possible_moves(&mut self) {
         let mut available_moves = ACTIONS.to_vec();
         available_moves.retain(|action| {
+            use Action::*;
             let attrs = action.attributes();
 
             if let Some(base_cost) = attrs.cp_cost {
@@ -136,16 +141,25 @@ impl CraftState {
                 }
             }
 
-            use Action::*;
+            // only allow certain moves after observe
+            if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
+                return false;
+            }
+
+            // don't allow increases to quality if already at max
+            if self.quality >= self.quality_target && attrs.quality_efficiency.is_some() {
+                return false;
+            }
+
             match action {
                 MuscleMemory | Reflect => self.step == 1,
-                ByregotsBlessing => self.buffs.inner_quiet > 0,
+                ByregotsBlessing => self.buffs.inner_quiet > 1,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
                 PrudentSynthesis | PrudentTouch => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
-                // don't allow observe if observing
-                Observe => !self.observe,
+                // don't allow observe if observing; should also have enough CP to follow up
+                Observe => !self.observe && self.cp >= 5,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
                 // don't allow downgraded groundwork
@@ -153,23 +167,33 @@ impl CraftState {
                     let cost = calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
+                // don't allow master's mend too early
+                MastersMend => self.durability_max - self.durability <= 10,
+                // don't allow reapplying buffs too early
+                WasteNot | WasteNotII => self.buffs.waste_not <= 1 && self.buffs.waste_not_ii <= 2,
+                Manipulation => self.buffs.manipulation <= 2,
+                GreatStrides => self.buffs.great_strides == 0,
+                Veneration => self.buffs.veneration == 0,
+                Innovation => self.buffs.innovation == 0,
                 _ => true,
             }
         });
         self.available_moves = available_moves;
     }
 
+    /// Scores the current state with a value from 0 to slightly above 1.
     pub fn score(&self) -> f64 {
-        // cap quality at 1.0
-        let quality_ratio = 1.0_f64.min((self.quality / self.quality_target) as f64);
-        // the lower the step count, the better
-        quality_ratio - (self.step as f64 / 10.0)
+        let quality_ratio = 1.0_f64.min(self.quality as f64 / self.quality_target as f64);
+        // the fewer the steps, the higher this bonus will be
+        let fewer_steps_bonus = 0.2 / self.step as f64;
+        quality_ratio + fewer_steps_bonus
     }
 
-    pub fn check_result(&self) -> Option<CraftResult> {
+    pub fn check_result(&self, max_steps: u8) -> Option<CraftResult> {
         if self.progress >= self.progress_target {
             Some(CraftResult::Finished(self.score()))
-        } else if self.durability == 0 {
+        } else if self.durability == 0 || self.step >= max_steps || self.available_moves.is_empty()
+        {
             Some(CraftResult::Failed)
         } else {
             None
@@ -177,12 +201,9 @@ impl CraftState {
     }
 
     pub fn execute_action(&mut self, action: Action) -> Self {
-        let picked_index = self
-            .available_moves
-            .iter()
-            .position(|&m| m == action)
-            .unwrap();
-        let action = self.available_moves.swap_remove(picked_index);
+        if let Some(index) = self.available_moves.iter().position(|&m| m == action) {
+            self.available_moves.swap_remove(index);
+        }
         action.execute(self)
     }
 

@@ -6,11 +6,11 @@ use recipe::Recipe;
 
 include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 
+#[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
 }
 
-#[allow(dead_code)]
 impl Simulator {
     fn calculate_factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
@@ -47,70 +47,136 @@ impl Simulator {
         }
     }
 
-    fn node(&self, node: usize) -> &Node<CraftState> {
+    pub fn node(&self, node: usize) -> &Node<CraftState> {
         self.tree.get(node).unwrap()
     }
 
-    fn node_mut(&mut self, node: usize) -> &mut Node<CraftState> {
+    pub fn node_mut(&mut self, node: usize) -> &mut Node<CraftState> {
         self.tree.get_mut(node).unwrap()
     }
 
     pub fn execute_actions(
         &mut self,
-        node: usize,
+        start_index: usize,
         actions: Vec<Action>,
+        max_steps: u8,
     ) -> Result<usize, CraftResult> {
-        let mut current_node = node;
+        let mut current_index = start_index;
         for action in actions {
-            let current_state = &mut self.node_mut(current_node).state;
+            let current_state = &mut self.node_mut(current_index).state;
 
-            if let Some(result) = current_state.check_result() {
+            if let Some(result) = current_state.check_result(max_steps) {
                 return Err(result);
             }
 
             let new_state = current_state.execute_action(action);
-            let next_node = self.tree.insert(current_node, new_state);
-            current_node = next_node;
+            let next_index = self.tree.insert(current_index, new_state);
+            current_index = next_index;
         }
-        Ok(current_node)
+        Ok(current_index)
     }
 
-    fn ucb1(&self, state: &CraftState, parent_visits: f64) -> f64 {
-        // average reward
+    /// Calculate the UCB1 score for a node
+    fn eval(&self, state: &CraftState, parent_visits: f64) -> f64 {
         let visits = state.visits as f64;
         let exploitation = state.score_sum / visits;
         let exploration = (2.0 * parent_visits.ln() / visits).sqrt();
         exploitation + exploration
     }
 
-    fn select(&self, node: usize) -> Option<&usize> {
-        let parent = self.node(node);
-        let parent_visits = parent.state.visits;
-        parent.children.iter().max_by(|a, b| {
-            let a_reward = self.ucb1(&self.node(**a).state, parent_visits);
-            let b_reward = self.ucb1(&self.node(**b).state, parent_visits);
-            a_reward.partial_cmp(&b_reward).unwrap()
-        })
+    /// Traverses the tree to find a good candidate node to expand
+    fn select(&self, current_index: usize) -> usize {
+        let mut selected_index = current_index;
+        loop {
+            let selected_node = self.node(selected_index);
+            let parent_visits = selected_node.state.visits;
+            // return this node if there are still available moves, or if there are no children
+            if !selected_node.state.available_moves.is_empty() || selected_node.children.is_empty()
+            {
+                break;
+            }
+            // select the node with the highest UCB1 score
+            selected_index = *selected_node
+                .children
+                .iter()
+                .max_by(|a, b| {
+                    let a_reward = self.eval(&self.node(**a).state, parent_visits);
+                    let b_reward = self.eval(&self.node(**b).state, parent_visits);
+                    a_reward.partial_cmp(&b_reward).unwrap()
+                })
+                .unwrap();
+        }
+        selected_index
     }
 
-    fn expand(&mut self, node: usize) -> (usize, CraftResult) {
-        let mut current_node = node;
+    /// Randomly select from available moves until we hit a terminal state
+    fn expand(&mut self, start_index: usize, max_steps: u8) -> (usize, CraftResult) {
+        let mut current_index = start_index;
         loop {
-            let current_state = &mut self.node_mut(current_node).state;
+            let current_state = &mut self.node_mut(current_index).state;
 
-            if let Some(result) = current_state.check_result() {
-                return (current_node, result);
+            if let Some(result) = current_state.check_result(max_steps) {
+                return (current_index, result);
             }
 
             let new_state = current_state.execute_random_action();
-            let next_node = self.tree.insert(current_node, new_state);
-            current_node = next_node;
+            let next_node = self.tree.insert(current_index, new_state);
+            current_index = next_node;
         }
     }
 
-    // fn backup(&mut self, node: usize, target_node: usize) {}
+    fn backpropagate(&mut self, start_index: usize, target_index: usize, score: f64) {
+        let mut current_index = start_index;
+        loop {
+            let current_node = &mut self.node_mut(current_index);
+            current_node.state.visits += 1.0;
+            current_node.state.score_sum += score;
+            current_node.state.max_score = current_node.state.max_score.max(score);
 
-    // pub fn search(&mut self, node: usize) {}
+            if current_index == target_index {
+                break;
+            }
+
+            current_index = current_node.parent.unwrap();
+        }
+    }
+
+    pub fn search(&mut self, start_index: usize, max_iterations: usize, max_steps: u8) {
+        for _ in 0..max_iterations {
+            // select
+            let selected_index = self.select(start_index);
+            // expand/simulate
+            let (end_index, result) = self.expand(selected_index, max_steps);
+            let score = match result {
+                CraftResult::Finished(s) => s,
+                CraftResult::Failed => 0.0,
+            };
+            // backup
+            self.backpropagate(end_index, start_index, score);
+        }
+    }
+
+    pub fn solution(&self) -> (Vec<Action>, CraftState) {
+        let mut actions = vec![];
+        let mut node = self.node(0);
+        while !node.children.is_empty() {
+            let next_index: usize = *node
+                .children
+                .iter()
+                .max_by(|a, b| {
+                    let a_score = self.node(**a).state.max_score;
+                    let b_score = self.node(**b).state.max_score;
+                    a_score.partial_cmp(&b_score).unwrap()
+                })
+                .unwrap();
+            node = self.node(next_index);
+            if node.state.action.is_some() {
+                actions.push(node.state.action.unwrap());
+            }
+        }
+
+        (actions, node.state.clone())
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +214,7 @@ mod tests {
         cp: u32,
     ) -> &CraftState {
         let result_node = sim
-            .execute_actions(0, actions)
+            .execute_actions(0, actions, 30)
             .expect("craft finished unexpectedly");
         let result = &sim.node(result_node).state;
         assert_eq!(result.progress, progress);
@@ -198,10 +264,11 @@ mod tests {
             WasteNotII,
             Innovation,
             DelicateSynthesis,
+            BasicTouch,
             GreatStrides,
             ByregotsBlessing,
         ];
-        assert_craft(&mut setup_sim(), actions, 1150, 1257, 80, 181);
+        assert_craft(&mut setup_sim(), actions, 1150, 1925, 80, 163);
     }
 
     #[test]
@@ -223,7 +290,7 @@ mod tests {
             Groundwork,
         ];
         let mut sim = setup_sim();
-        sim.execute_actions(0, actions)
+        sim.execute_actions(0, actions, 30)
             .expect("craft finished unexpectedly");
     }
 }

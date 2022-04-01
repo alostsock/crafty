@@ -1,8 +1,8 @@
+#[derive(Debug)]
 pub struct Arena<T> {
-    nodes: Vec<Node<T>>,
+    pub nodes: Vec<Node<T>>,
 }
 
-#[allow(dead_code)]
 impl<T> Arena<T> {
     pub fn new(initial_state: T) -> Self {
         let initial_node = Node {
@@ -38,6 +38,7 @@ impl<T> Arena<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Node<T> {
     pub parent: Option<usize>,
     pub index: usize,

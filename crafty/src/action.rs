@@ -108,7 +108,9 @@ create_actions!(
     Reflect(quality 1.0, durability 10, cp 6, effect |state| {
         state.buffs.inner_quiet += 1;
     }),
-    PreparatoryTouch(quality 2.0, durability 20, cp 40,),
+    PreparatoryTouch(quality 2.0, durability 20, cp 40, effect |state| {
+        state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
+    }),
     Groundwork(progress 3.6, durability 20, cp 18,),
     DelicateSynthesis(progress 1.0, quality 1.0, durability 10, cp 32,),
     // Intensive Synthesis
@@ -166,9 +168,8 @@ pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
 }
 
 pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
-    if state.next_combo == Some(Action::StandardTouch)
-        || state.next_combo == Some(Action::AdvancedTouch)
-    {
+    // test for basic touch combo
+    if state.action.is_some() && state.action == state.next_combo {
         return 18;
     }
     base_cost
@@ -182,6 +183,7 @@ impl Action {
             action: Some(self),
             prior: 1.0,
             score_sum: 0.0,
+            max_score: 0.0,
             visits: 0.0,
             available_moves: vec![],
             ..*prev_state
@@ -205,7 +207,9 @@ impl Action {
         }
 
         if let Some(base_cost) = action.durability_cost {
-            state.durability -= calc_durability_cost(&state, base_cost);
+            state.durability = state
+                .durability
+                .saturating_sub(calc_durability_cost(&state, base_cost));
         }
 
         if state.buffs.manipulation > 0 {
