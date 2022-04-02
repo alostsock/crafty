@@ -1,5 +1,5 @@
 #![allow(clippy::unused_unit)]
-use crafty::recipes::recipes_by_level;
+use crafty::data::recipes as recipes_by_job_level;
 use wasm_bindgen::{prelude::*, JsCast};
 
 // TODO: Create a proc derive macro that somehow serializes Rust structs into
@@ -32,8 +32,8 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn recipes(level: u32) -> RecipeArray {
-    let recipes = recipes_by_level(level);
+pub fn recipes(job_level: u32) -> RecipeArray {
+    let recipes = recipes_by_job_level(job_level);
     JsValue::from_serde(recipes)
         .unwrap()
         .unchecked_into::<RecipeArray>()

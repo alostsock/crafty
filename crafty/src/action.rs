@@ -35,11 +35,12 @@ macro_rules! create_actions {
             $($action_name,)*
         }
 
-        pub const ACTIONS: &[Action] = &[
-            $(Action::$action_name,)*
-        ];
 
         impl Action {
+            pub const ACTIONS: &'static [Action] = &[
+                $(Action::$action_name,)*
+            ];
+
             pub fn attributes(&self) -> ActionAttributes {
                 match *self {
                     $(
@@ -122,60 +123,60 @@ create_actions!(
     TrainedFinesse(quality 1.0, durability 10, cp 32,),
 );
 
-pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
-    let base = state.progress_factor;
-
-    let mut multiplier = 1.0;
-    if state.buffs.veneration > 0 {
-        multiplier += 0.5;
-    }
-    if state.buffs.muscle_memory > 0 {
-        multiplier += 1.0;
-    }
-
-    (base * efficiency * multiplier).floor() as u32
-}
-
-pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
-    let base = state.quality_factor;
-
-    let mut efficiency = efficiency;
-
-    if state.action == Some(Action::ByregotsBlessing) {
-        efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
-    }
-
-    let mut modifier = 1.0 + state.buffs.inner_quiet as f32 / 10.0;
-
-    let mut multiplier = 1.0;
-    if state.buffs.innovation > 0 {
-        multiplier += 0.5;
-    }
-    if state.buffs.great_strides > 0 {
-        multiplier += 1.0;
-    }
-
-    modifier *= multiplier;
-
-    (base * efficiency * modifier).floor() as u32
-}
-
-pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
-    if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
-        return base_cost / 2;
-    }
-    base_cost
-}
-
-pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
-    // test for basic touch combo
-    if state.action.is_some() && state.action == state.next_combo {
-        return 18;
-    }
-    base_cost
-}
-
 impl Action {
+    pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
+        let base = state.progress_factor;
+
+        let mut multiplier = 1.0;
+        if state.buffs.veneration > 0 {
+            multiplier += 0.5;
+        }
+        if state.buffs.muscle_memory > 0 {
+            multiplier += 1.0;
+        }
+
+        (base * efficiency * multiplier).floor() as u32
+    }
+
+    pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
+        let base = state.quality_factor;
+
+        let mut efficiency = efficiency;
+
+        if state.action == Some(Action::ByregotsBlessing) {
+            efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
+        }
+
+        let mut modifier = 1.0 + state.buffs.inner_quiet as f32 / 10.0;
+
+        let mut multiplier = 1.0;
+        if state.buffs.innovation > 0 {
+            multiplier += 0.5;
+        }
+        if state.buffs.great_strides > 0 {
+            multiplier += 1.0;
+        }
+
+        modifier *= multiplier;
+
+        (base * efficiency * modifier).floor() as u32
+    }
+
+    pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
+        if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
+            return base_cost / 2;
+        }
+        base_cost
+    }
+
+    pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
+        // test for basic touch combo
+        if state.action.is_some() && state.action == state.next_combo {
+            return 18;
+        }
+        base_cost
+    }
+
     pub fn execute(self, prev_state: &CraftState) -> CraftState {
         let mut state = CraftState {
             step: prev_state.step + 1,
@@ -192,12 +193,12 @@ impl Action {
         let action = self.attributes();
 
         if let Some(efficiency) = action.progress_efficiency {
-            state.progress += calc_progress_increase(&state, efficiency);
+            state.progress += Action::calc_progress_increase(&state, efficiency);
             state.buffs.muscle_memory = 0;
         }
 
         if let Some(efficiency) = action.quality_efficiency {
-            state.quality += calc_quality_increase(&state, efficiency);
+            state.quality += Action::calc_quality_increase(&state, efficiency);
             if self == Action::ByregotsBlessing {
                 state.buffs.inner_quiet = 0;
             } else {
@@ -209,7 +210,7 @@ impl Action {
         if let Some(base_cost) = action.durability_cost {
             state.durability = state
                 .durability
-                .saturating_sub(calc_durability_cost(&state, base_cost));
+                .saturating_sub(Action::calc_durability_cost(&state, base_cost));
         }
 
         if state.buffs.manipulation > 0 {
@@ -217,7 +218,7 @@ impl Action {
         }
 
         if let Some(base_cost) = action.cp_cost {
-            state.cp -= calc_cp_cost(&state, base_cost);
+            state.cp -= Action::calc_cp_cost(&state, base_cost);
         }
 
         state.observe = false;

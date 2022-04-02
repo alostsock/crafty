@@ -1,4 +1,4 @@
-use crate::action::{calc_cp_cost, calc_durability_cost, Action, ACTIONS};
+use crate::Action;
 use rand::prelude::Rng;
 use std::fmt;
 
@@ -130,13 +130,13 @@ impl CraftState {
     /// Prune as many moves as possible to reduce the search space; adding some
     /// bias to improve move selection should be OK.
     pub fn determine_possible_moves(&mut self) {
-        let mut available_moves = ACTIONS.to_vec();
+        let mut available_moves = Action::ACTIONS.to_vec();
         available_moves.retain(|action| {
             use Action::*;
             let attrs = action.attributes();
 
             if let Some(base_cost) = attrs.cp_cost {
-                if calc_cp_cost(self, base_cost) > self.cp {
+                if Action::calc_cp_cost(self, base_cost) > self.cp {
                     return false;
                 }
             }
@@ -164,7 +164,7 @@ impl CraftState {
                 FocusedSynthesis | FocusedTouch => self.observe,
                 // don't allow downgraded groundwork
                 Groundwork => {
-                    let cost = calc_durability_cost(self, attrs.durability_cost.unwrap());
+                    let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
                 // don't allow master's mend too early

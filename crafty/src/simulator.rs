@@ -1,14 +1,11 @@
-use crate::action::Action;
-use crate::craft_state::{CraftResult, CraftState};
-use crate::player::Player;
 use crate::tree::{Arena, Node};
-use recipe::Recipe;
-
-include!(concat!(env!("OUT_DIR"), "/levels.rs"));
+use crate::{data, Action, CraftResult, CraftState, Player, Recipe};
 
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
+    pub iterations: u32,
+    pub max_steps: u8,
 }
 
 impl Simulator {
@@ -21,8 +18,8 @@ impl Simulator {
         let quality_div = recipe.quality_div as f32;
         let mut quality_factor: f32 = (player.control * 10) as f32 / quality_div + 35.0;
 
-        if let Some(&player_recipe_level) = LEVELS.get(&player.job_level) {
-            if player_recipe_level <= recipe.recipe_level {
+        if let Some(&base_recipe_level) = data::base_recipe_level(player.job_level) {
+            if base_recipe_level <= recipe.recipe_level {
                 progress_factor *= recipe.progress_mod as f32 / 100.0;
                 quality_factor *= recipe.quality_mod as f32 / 100.0;
             }
@@ -31,7 +28,7 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    pub fn new(recipe: &Recipe, player: &Player) -> Self {
+    pub fn new(recipe: &Recipe, player: &Player, iterations: u32, max_steps: u8) -> Self {
         let (progress_factor, quality_factor) = Simulator::calculate_factors(player, recipe);
         let initial_state = CraftState::new(
             progress_factor,
@@ -44,6 +41,8 @@ impl Simulator {
 
         Simulator {
             tree: Arena::new(initial_state),
+            iterations,
+            max_steps,
         }
     }
 
@@ -59,10 +58,10 @@ impl Simulator {
         &mut self,
         start_index: usize,
         actions: Vec<Action>,
-        max_steps: u8,
     ) -> Result<usize, CraftResult> {
         let mut current_index = start_index;
         for action in actions {
+            let max_steps = self.max_steps;
             let current_state = &mut self.node_mut(current_index).state;
 
             if let Some(result) = current_state.check_result(max_steps) {
@@ -110,9 +109,10 @@ impl Simulator {
     }
 
     /// Randomly select from available moves until we hit a terminal state
-    fn expand(&mut self, start_index: usize, max_steps: u8) -> (usize, CraftResult) {
+    fn expand(&mut self, start_index: usize) -> (usize, CraftResult) {
         let mut current_index = start_index;
         loop {
+            let max_steps = self.max_steps;
             let current_state = &mut self.node_mut(current_index).state;
 
             if let Some(result) = current_state.check_result(max_steps) {
@@ -125,7 +125,7 @@ impl Simulator {
         }
     }
 
-    fn backpropagate(&mut self, start_index: usize, target_index: usize, score: f64) {
+    fn backup(&mut self, start_index: usize, target_index: usize, score: f64) {
         let mut current_index = start_index;
         loop {
             let current_node = &mut self.node_mut(current_index);
@@ -141,19 +141,17 @@ impl Simulator {
         }
     }
 
-    pub fn search(&mut self, start_index: usize, max_iterations: usize, max_steps: u8) {
-        for _ in 0..max_iterations {
-            // select
+    pub fn search(&mut self, start_index: usize) -> &mut Self {
+        for _ in 0..self.iterations {
             let selected_index = self.select(start_index);
-            // expand/simulate
-            let (end_index, result) = self.expand(selected_index, max_steps);
+            let (end_index, result) = self.expand(selected_index);
             let score = match result {
                 CraftResult::Finished(s) => s,
                 CraftResult::Failed => 0.0,
             };
-            // backup
-            self.backpropagate(end_index, start_index, score);
+            self.backup(end_index, start_index, score);
         }
+        self
     }
 
     pub fn solution(&self) -> (Vec<Action>, CraftState) {
@@ -202,7 +200,7 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
-        Simulator::new(&recipe, &player)
+        Simulator::new(&recipe, &player, 10_000, 15)
     }
 
     fn assert_craft(
@@ -214,7 +212,7 @@ mod tests {
         cp: u32,
     ) -> &CraftState {
         let result_node = sim
-            .execute_actions(0, actions, 30)
+            .execute_actions(0, actions)
             .expect("craft finished unexpectedly");
         let result = &sim.node(result_node).state;
         assert_eq!(result.progress, progress);
@@ -290,7 +288,7 @@ mod tests {
             Groundwork,
         ];
         let mut sim = setup_sim();
-        sim.execute_actions(0, actions, 30)
+        sim.execute_actions(0, actions)
             .expect("craft finished unexpectedly");
     }
 }

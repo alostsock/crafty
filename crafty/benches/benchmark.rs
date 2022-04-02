@@ -1,7 +1,6 @@
-use crafty::{action::Action, player::Player, simulator::Simulator};
+use crafty::{Action, Player, Recipe, Simulator};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
-use recipe::Recipe;
 use Action::*;
 
 fn setup_sim() -> Simulator {
@@ -20,7 +19,7 @@ fn setup_sim() -> Simulator {
         conditions_flag: 15,
     };
     let player = Player::new(90, 3304, 3374, 575);
-    Simulator::new(&recipe, &player)
+    Simulator::new(&recipe, &player, 50_000, 15)
 }
 
 const ACTIONS: &[Action] = &[
@@ -44,7 +43,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("basic rotation", |b| {
         b.iter_batched(
             || -> Simulator { setup_sim() },
-            |mut sim| sim.execute_actions(black_box(0), black_box(ACTIONS.to_vec()), black_box(20)),
+            |mut sim| sim.execute_actions(black_box(0), black_box(ACTIONS.to_vec())),
             BatchSize::SmallInput,
         )
     });
@@ -53,7 +52,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         b.iter_batched(
             || -> Simulator { setup_sim() },
             |mut sim| {
-                sim.search(black_box(0), black_box(50_000), black_box(20));
+                sim.search(black_box(0));
             },
             BatchSize::SmallInput,
         )

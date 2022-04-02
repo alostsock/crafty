@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use crafty::{
-    craft_state::CraftResult, player::Player, recipes::recipes_by_level, simulator::Simulator,
-};
+use crafty::{data, CraftResult, Player, Simulator};
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
@@ -26,6 +24,12 @@ struct Args {
     /// The player's cp stat
     #[clap(index = 4)]
     cp: u32,
+    /// When searching, limits the number of simulations run (default: 100,000)
+    #[clap(short, long, default_value_t = 100_000_u32)]
+    iterations: u32,
+    /// When searching, specifies the maximum number of steps allowed (default: 15)
+    #[clap(short, long, default_value_t = 15_u8)]
+    steps: u8,
 }
 
 fn main() -> Result<()> {
@@ -36,10 +40,12 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    is_between(&args.job_level, 1, 90, "job level")?;
-    is_between(&args.craftsmanship, 1, 5000, "craftsmanship")?;
-    is_between(&args.control, 1, 5000, "control")?;
-    is_between(&args.cp, 1, 700, "cp")?;
+    is_between(args.job_level, 1, 90, "job level")?;
+    is_between(args.craftsmanship, 1, 5000, "craftsmanship")?;
+    is_between(args.control, 1, 5000, "control")?;
+    is_between(args.cp, 1, 700, "cp")?;
+    is_between(args.iterations, 100, 10_000_000, "iterations")?;
+    is_between(u32::from(args.steps), 5, 50, "steps")?;
 
     let player = Player::new(args.job_level, args.craftsmanship, args.control, args.cp);
     println!("\n  player stats: {}\n", green(player.to_string().as_str()));
@@ -47,17 +53,13 @@ fn main() -> Result<()> {
     let recipe_job_level: u32 = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("recipe level? (1-90)")
         .with_initial_text("90")
-        .validate_with(|input: &u32| is_between(input, 1, 90, "recipe level"))
+        .validate_with(|input: &u32| is_between(*input, 1, 90, "recipe level"))
         .interact_text()?;
 
-    let recipe_options = recipes_by_level(recipe_job_level);
+    let recipe_options = data::recipes(recipe_job_level);
     let recipe = prompt_selection("recipe?", recipe_options)?;
 
-    let mut sim = Simulator::new(recipe, &player);
-
-    let max_iterations: usize = 1_000_000;
-    let max_steps: u8 = 15;
-
+    let mut sim = Simulator::new(recipe, &player, args.iterations, args.steps);
     let mut current_node = 0;
     loop {
         let state = &sim.node_mut(current_node).state;
@@ -77,7 +79,7 @@ fn main() -> Result<()> {
             actions.sort_by_key(|k| format!("{}", k));
             let action = *prompt_selection("action?:", &actions)?;
 
-            match sim.execute_actions(current_node, vec![action], max_steps) {
+            match sim.execute_actions(current_node, vec![action]) {
                 Ok(next_node) => current_node = next_node,
                 Err(CraftResult::Finished(score)) => {
                     println!(
@@ -95,10 +97,8 @@ fn main() -> Result<()> {
             println!("{}", cyan("\n  attempting to find the best path..."));
 
             let instant = time::Instant::now();
-            sim.search(current_node, max_iterations, max_steps);
+            let (actions, end_state) = sim.search(current_node).solution();
             let elapsed = instant.elapsed().as_secs();
-
-            let (actions, end_state) = sim.solution();
 
             println!(
                 "{}",
@@ -132,8 +132,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn is_between(value: &u32, min: u32, max: u32, label: &str) -> Result<()> {
-    if value >= &min && value <= &max {
+fn is_between(value: u32, min: u32, max: u32, label: &str) -> Result<()> {
+    if value >= min && value <= max {
         Ok(())
     } else {
         Err(anyhow!("{} should be between {} and {}", label, min, max))
