@@ -160,7 +160,7 @@ impl Simulator {
         // store the result if a max score was reached
         match result {
             CraftResult::Finished(score)
-                if score >= 1.0 && score >= self.tree.nodes[0].state.max_score =>
+                if score >= 0.75 && score >= self.tree.nodes[0].state.max_score =>
             {
                 let finished_index = self
                     .execute_actions(expanded_index, action_history)
@@ -235,7 +235,7 @@ mod tests {
     use super::{Action, Player, Recipe, Simulator};
     use Action::*;
 
-    fn setup_sim() -> Simulator {
+    fn setup_sim_1() -> Simulator {
         let recipe = Recipe {
             recipe_level: 560,
             job_level: 90,
@@ -252,6 +252,25 @@ mod tests {
         };
         let player = Player::new(90, 3304, 3374, 575);
         Simulator::new(&recipe, &player, 10_000, 15, Some(0))
+    }
+
+    fn setup_sim_2() -> Simulator {
+        let recipe = Recipe {
+            recipe_level: 580,
+            job_level: 90,
+            stars: 2,
+            progress: 3900,
+            quality: 10920,
+            durability: 70,
+            progress_div: 130,
+            progress_mod: 80,
+            quality_div: 115,
+            quality_mod: 70,
+            is_expert: false,
+            conditions_flag: 15,
+        };
+        let player = Player::new(90, 3290, 3541, 649);
+        Simulator::new(&recipe, &player, 10_000, 30, Some(0))
     }
 
     fn assert_craft(
@@ -276,7 +295,7 @@ mod tests {
     #[test]
     fn basic_actions() {
         let actions = vec![BasicTouch, BasicSynthesis, MastersMend];
-        assert_craft(&mut setup_sim(), actions, 276, 262, 80, 469);
+        assert_craft(&mut setup_sim_1(), actions, 276, 262, 80, 469);
     }
 
     #[test]
@@ -289,19 +308,19 @@ mod tests {
             StandardTouch,
             AdvancedTouch,
         ];
-        assert_craft(&mut setup_sim(), actions, 0, 2828, 30, 425);
+        assert_craft(&mut setup_sim_1(), actions, 0, 2828, 30, 425);
     }
 
     #[test]
     fn with_buffs_1() {
         let actions = vec![Reflect, Manipulation, PreparatoryTouch, WasteNotII];
-        assert_craft(&mut setup_sim(), actions, 0, 890, 60, 335);
+        assert_craft(&mut setup_sim_1(), actions, 0, 890, 60, 335);
     }
 
     #[test]
     fn with_buffs_2() {
         let actions = vec![MuscleMemory, GreatStrides, PrudentTouch, DelicateSynthesis];
-        assert_craft(&mut setup_sim(), actions, 1150, 812, 55, 480);
+        assert_craft(&mut setup_sim_1(), actions, 1150, 812, 55, 480);
     }
 
     #[test]
@@ -317,11 +336,11 @@ mod tests {
             GreatStrides,
             ByregotsBlessing,
         ];
-        assert_craft(&mut setup_sim(), actions, 1150, 1925, 80, 163);
+        assert_craft(&mut setup_sim_1(), actions, 1150, 1925, 80, 163);
     }
 
     #[test]
-    fn should_not_panic() {
+    fn should_not_panic_1() {
         let actions = vec![
             Reflect,
             Manipulation,
@@ -338,8 +357,33 @@ mod tests {
             Groundwork,
             Groundwork,
         ];
-        let mut sim = setup_sim();
-        sim.execute_actions(0, actions)
-            .expect("craft finished unexpectedly");
+        let mut sim = setup_sim_1();
+        sim.execute_actions(0, actions).unwrap();
+    }
+
+    #[test]
+    fn should_not_panic_2() {
+        let actions = vec![
+            MuscleMemory,
+            Manipulation,
+            Veneration,
+            WasteNotII,
+            Groundwork,
+            Groundwork,
+            StandardTouch,
+            Innovation,
+            PreparatoryTouch,
+            PreparatoryTouch,
+            PreparatoryTouch,
+            PreparatoryTouch,
+            GreatStrides,
+            Innovation,
+            PreparatoryTouch,
+            TrainedFinesse,
+            GreatStrides,
+            ByregotsBlessing,
+        ];
+        let mut sim = setup_sim_2();
+        sim.execute_actions(0, actions).unwrap();
     }
 }

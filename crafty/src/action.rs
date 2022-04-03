@@ -120,7 +120,7 @@ create_actions!(
         state.next_combo = None;
     }),
     PrudentSynthesis(progress 1.8, durability 10, cp 18,),
-    TrainedFinesse(quality 1.0, durability 10, cp 32,),
+    TrainedFinesse(quality 1.0, cp 32,),
 );
 
 impl Action {
