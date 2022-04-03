@@ -24,17 +24,17 @@ impl<T> Arena<T> {
             children: vec![],
             state,
         };
-        self.get_mut(parent_index).unwrap().children.push(index);
+        self.get_mut(parent_index).children.push(index);
         self.nodes.push(node);
         index
     }
 
-    pub fn get(&self, index: usize) -> Option<&Node<T>> {
-        self.nodes.get(index)
+    pub fn get(&self, index: usize) -> &Node<T> {
+        self.nodes.get(index).unwrap()
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut Node<T>> {
-        self.nodes.get_mut(index)
+    pub fn get_mut(&mut self, index: usize) -> &mut Node<T> {
+        self.nodes.get_mut(index).unwrap()
     }
 }
 
@@ -55,19 +55,19 @@ mod tests {
         let arena = Arena::new("a");
 
         assert_eq!(arena.nodes.len(), 1);
-        assert_eq!(arena.get(0).unwrap().state, "a");
+        assert_eq!(arena.get(0).state, "a");
     }
 
     #[test]
     fn inserts_into_arena_and_parent() {
         let mut arena = Arena::new("a");
 
-        assert_eq!(arena.get(0).unwrap().children.len(), 0);
+        assert_eq!(arena.get(0).children.len(), 0);
 
         let index_b = arena.insert(0, "b");
 
         assert_eq!(arena.nodes.len(), 2);
-        assert_eq!(arena.get(index_b).unwrap().state, "b");
-        assert_eq!(arena.get(0).unwrap().children.len(), 1);
+        assert_eq!(arena.get(index_b).state, "b");
+        assert_eq!(arena.get(0).children.len(), 1);
     }
 }

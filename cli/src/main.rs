@@ -59,10 +59,10 @@ fn main() -> Result<()> {
     let recipe_options = data::recipes(recipe_job_level);
     let recipe = prompt_selection("recipe?", recipe_options)?;
 
-    let mut sim = Simulator::new(recipe, &player, args.iterations, args.steps);
-    let mut current_node = 0;
+    let mut sim = Simulator::new(recipe, &player, args.iterations, args.steps, None);
+    let mut current_index = 0;
     loop {
-        let state = &sim.node_mut(current_node).state;
+        let state = &sim.tree.get_mut(current_index).state;
 
         println!(
             "\n  step {:>2}: {}",
@@ -79,8 +79,8 @@ fn main() -> Result<()> {
             actions.sort_by_key(|k| format!("{}", k));
             let action = *prompt_selection("action?:", &actions)?;
 
-            match sim.execute_actions(current_node, vec![action]) {
-                Ok(next_node) => current_node = next_node,
+            match sim.execute_actions(current_index, vec![action]) {
+                Ok(next_index) => current_index = next_index,
                 Err(CraftResult::Finished(score)) => {
                     println!(
                         "\nThe craft finished with a score of {}.",
@@ -97,7 +97,7 @@ fn main() -> Result<()> {
             println!("{}", cyan("\n  attempting to find the best path..."));
 
             let instant = time::Instant::now();
-            let (actions, end_state) = sim.search(current_node).solution();
+            let (actions, end_state) = sim.search(current_index).solution();
             let elapsed = instant.elapsed().as_secs();
 
             println!(

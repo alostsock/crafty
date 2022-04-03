@@ -1,11 +1,13 @@
-use crate::tree::{Arena, Node};
+use crate::tree::Arena;
 use crate::{data, Action, CraftResult, CraftState, Player, Recipe};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
     pub iterations: u32,
     pub max_steps: u8,
+    rng: SmallRng,
 }
 
 impl Simulator {
@@ -28,7 +30,13 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    pub fn new(recipe: &Recipe, player: &Player, iterations: u32, max_steps: u8) -> Self {
+    pub fn new(
+        recipe: &Recipe,
+        player: &Player,
+        iterations: u32,
+        max_steps: u8,
+        rng_seed: Option<u64>,
+    ) -> Self {
         let (progress_factor, quality_factor) = Simulator::calculate_factors(player, recipe);
         let initial_state = CraftState::new(
             progress_factor,
@@ -43,15 +51,14 @@ impl Simulator {
             tree: Arena::new(initial_state),
             iterations,
             max_steps,
+            rng: {
+                if let Some(seed) = rng_seed {
+                    SmallRng::seed_from_u64(seed)
+                } else {
+                    SmallRng::from_entropy()
+                }
+            },
         }
-    }
-
-    pub fn node(&self, node: usize) -> &Node<CraftState> {
-        self.tree.get(node).unwrap()
-    }
-
-    pub fn node_mut(&mut self, node: usize) -> &mut Node<CraftState> {
-        self.tree.get_mut(node).unwrap()
     }
 
     pub fn execute_actions(
@@ -61,15 +68,22 @@ impl Simulator {
     ) -> Result<usize, CraftResult> {
         let mut current_index = start_index;
         for action in actions {
-            let max_steps = self.max_steps;
-            let current_state = &mut self.node_mut(current_index).state;
+            let current_state = &mut self.tree.get_mut(current_index).state;
 
-            if let Some(result) = current_state.check_result(max_steps) {
+            if let Some(result) = current_state.check_result(self.max_steps) {
                 return Err(result);
             }
 
-            let new_state = current_state.execute_action(action);
-            let next_index = self.tree.insert(current_index, new_state);
+            if let Some(index) = current_state
+                .available_moves
+                .iter()
+                .position(|&m| m == action)
+            {
+                current_state.available_moves.swap_remove(index);
+            }
+
+            let next_state = action.execute(current_state);
+            let next_index = self.tree.insert(current_index, next_state);
             current_index = next_index;
         }
         Ok(current_index)
@@ -87,20 +101,24 @@ impl Simulator {
     fn select(&self, current_index: usize) -> usize {
         let mut selected_index = current_index;
         loop {
-            let selected_node = self.node(selected_index);
-            let parent_visits = selected_node.state.visits;
-            // return this node if there are still available moves, or if there are no children
+            let selected_node = self.tree.get(selected_index);
+
+            // return this node if:
+            // - there are still available moves, or
+            // - there are no children to pick from
             if !selected_node.state.available_moves.is_empty() || selected_node.children.is_empty()
             {
                 break;
             }
-            // select the node with the highest UCB1 score
+
+            // select the node with the highest score
+            let parent_visits = selected_node.state.visits;
             selected_index = *selected_node
                 .children
                 .iter()
                 .max_by(|a, b| {
-                    let a_reward = self.eval(&self.node(**a).state, parent_visits);
-                    let b_reward = self.eval(&self.node(**b).state, parent_visits);
+                    let a_reward = self.eval(&self.tree.get(**a).state, parent_visits);
+                    let b_reward = self.eval(&self.tree.get(**b).state, parent_visits);
                     a_reward.partial_cmp(&b_reward).unwrap()
                 })
                 .unwrap();
@@ -112,15 +130,17 @@ impl Simulator {
     fn expand(&mut self, start_index: usize) -> (usize, CraftResult) {
         let mut current_index = start_index;
         loop {
-            let max_steps = self.max_steps;
-            let current_state = &mut self.node_mut(current_index).state;
+            let current_state = &mut self.tree.get_mut(current_index).state;
 
-            if let Some(result) = current_state.check_result(max_steps) {
+            if let Some(result) = current_state.check_result(self.max_steps) {
                 return (current_index, result);
             }
 
-            let new_state = current_state.execute_random_action();
-            let next_node = self.tree.insert(current_index, new_state);
+            let move_count = current_state.available_moves.len();
+            let random_index = self.rng.gen_range(0..move_count);
+            let random_action = current_state.available_moves.swap_remove(random_index);
+            let next_state = random_action.execute(current_state);
+            let next_node = self.tree.insert(current_index, next_state);
             current_index = next_node;
         }
     }
@@ -128,7 +148,7 @@ impl Simulator {
     fn backup(&mut self, start_index: usize, target_index: usize, score: f64) {
         let mut current_index = start_index;
         loop {
-            let current_node = &mut self.node_mut(current_index);
+            let current_node = &mut self.tree.get_mut(current_index);
             current_node.state.visits += 1.0;
             current_node.state.score_sum += score;
             current_node.state.max_score = current_node.state.max_score.max(score);
@@ -156,18 +176,18 @@ impl Simulator {
 
     pub fn solution(&self) -> (Vec<Action>, CraftState) {
         let mut actions = vec![];
-        let mut node = self.node(0);
+        let mut node = self.tree.get(0);
         while !node.children.is_empty() {
             let next_index: usize = *node
                 .children
                 .iter()
                 .max_by(|a, b| {
-                    let a_score = self.node(**a).state.max_score;
-                    let b_score = self.node(**b).state.max_score;
+                    let a_score = self.tree.get(**a).state.max_score;
+                    let b_score = self.tree.get(**b).state.max_score;
                     a_score.partial_cmp(&b_score).unwrap()
                 })
                 .unwrap();
-            node = self.node(next_index);
+            node = self.tree.get(next_index);
             if node.state.action.is_some() {
                 actions.push(node.state.action.unwrap());
             }
@@ -200,7 +220,7 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
-        Simulator::new(&recipe, &player, 10_000, 15)
+        Simulator::new(&recipe, &player, 10_000, 15, Some(0))
     }
 
     fn assert_craft(
@@ -214,7 +234,7 @@ mod tests {
         let result_node = sim
             .execute_actions(0, actions)
             .expect("craft finished unexpectedly");
-        let result = &sim.node(result_node).state;
+        let result = &sim.tree.get(result_node).state;
         assert_eq!(result.progress, progress);
         assert_eq!(result.quality, quality);
         assert_eq!(result.durability, durability);

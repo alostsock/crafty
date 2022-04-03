@@ -1,5 +1,4 @@
 use crate::Action;
-use rand::prelude::Rng;
 use std::fmt;
 
 #[derive(Debug)]
@@ -198,19 +197,5 @@ impl CraftState {
         } else {
             None
         }
-    }
-
-    pub fn execute_action(&mut self, action: Action) -> Self {
-        if let Some(index) = self.available_moves.iter().position(|&m| m == action) {
-            self.available_moves.swap_remove(index);
-        }
-        action.execute(self)
-    }
-
-    pub fn execute_random_action(&mut self) -> Self {
-        let mut rng = rand::thread_rng();
-        let random_index = rng.gen_range(0..self.available_moves.len());
-        let random_action = self.available_moves.swap_remove(random_index);
-        random_action.execute(self)
     }
 }
