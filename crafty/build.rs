@@ -71,11 +71,11 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     // Sort and group recipes by job level for ease of selection
     let mut recipe_variants: Vec<_> = distinct_recipe_variants.into_iter().collect();
     recipe_variants.sort_by(|a, b| {
-        let first = a.job_level.cmp(&b.job_level);
-        let second = a.stars.cmp(&b.stars);
-        let third = a.recipe_level.cmp(&b.recipe_level);
-        let fourth = a.durability.cmp(&b.durability);
-        first.then(second).then(third).then(fourth)
+        (a.job_level.cmp(&b.job_level))
+            .then(a.stars.cmp(&b.stars))
+            .then(a.recipe_level.cmp(&b.recipe_level))
+            .then(a.durability.cmp(&b.durability))
+            .then(a.progress.cmp(&b.progress))
     });
     let mut recipes_by_level: HashMap<u32, Vec<Recipe>> = HashMap::new();
     for variant in recipe_variants {
