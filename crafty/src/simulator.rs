@@ -6,8 +6,8 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 pub struct Simulator {
     pub tree: Arena<CraftState>,
     pub iterations: u32,
-    pub max_steps: u8,
     rng: SmallRng,
+    pub dead_ends_selected: u64,
 }
 
 impl Simulator {
@@ -43,6 +43,7 @@ impl Simulator {
             quality_factor,
             recipe.progress,
             recipe.quality,
+            max_steps,
             recipe.durability,
             player.cp,
         );
@@ -50,7 +51,6 @@ impl Simulator {
         Simulator {
             tree: Arena::new(initial_state),
             iterations,
-            max_steps,
             rng: {
                 if let Some(seed) = rng_seed {
                     SmallRng::seed_from_u64(seed)
@@ -58,6 +58,7 @@ impl Simulator {
                     SmallRng::from_entropy()
                 }
             },
+            dead_ends_selected: 0,
         }
     }
 
@@ -70,7 +71,7 @@ impl Simulator {
         for action in actions {
             let current_state = &mut self.tree.get_mut(current_index).state;
 
-            if let Some(result) = current_state.check_result(self.max_steps) {
+            if let Some(result) = current_state.check_result() {
                 return Err(result);
             }
 
@@ -97,17 +98,15 @@ impl Simulator {
         exploitation + exploration
     }
 
-    /// Traverses the tree to find a good candidate node to expand
+    /// Traverses the tree to find a good candidate node to expand.
     fn select(&self, current_index: usize) -> usize {
         let mut selected_index = current_index;
         loop {
             let selected_node = self.tree.get(selected_index);
 
-            // return this node if:
-            // - there are still available moves, or
-            // - there are no children to pick from
-            if !selected_node.state.available_moves.is_empty() || selected_node.children.is_empty()
-            {
+            let expandable = !selected_node.state.available_moves.is_empty();
+            let likely_terminal = selected_node.children.is_empty();
+            if expandable || likely_terminal {
                 break;
             }
 
@@ -126,22 +125,49 @@ impl Simulator {
         selected_index
     }
 
-    /// Randomly select from available moves until we hit a terminal state
-    fn expand(&mut self, start_index: usize) -> (usize, CraftResult) {
-        let mut current_index = start_index;
-        loop {
-            let current_state = &mut self.tree.get_mut(current_index).state;
+    /// Expands the tree, then randomly selects from available moves until a
+    /// terminal state is encountered. To decrease memory usage, the tree should
+    /// only expand by one node per iteration unless we hit a good score, in
+    /// which case the the whole path should be stored.
+    fn expand_and_rollout(&mut self, initial_index: usize) -> (usize, CraftResult) {
+        // expand once
+        let initial_state = &mut self.tree.get_mut(initial_index).state;
+        let move_count = initial_state.available_moves.len();
+        // TODO: Currently there is a high chance of selecting a "dead end" due to how
+        // selection works. Additional heuristics should be added to avoid these.
+        if move_count == 0 {
+            return (initial_index, initial_state.check_result().unwrap());
+        }
+        let random_index = self.rng.gen_range(0..move_count);
+        let random_action = initial_state.available_moves.swap_remove(random_index);
+        let expanded_state = random_action.execute(initial_state);
+        let expanded_index = self.tree.insert(initial_index, expanded_state);
 
-            if let Some(result) = current_state.check_result(self.max_steps) {
-                return (current_index, result);
+        // playout to a terminal state
+        let mut current_state = self.tree.get(expanded_index).state.clone();
+        let mut action_history: Vec<Action> = vec![];
+        let result = loop {
+            if let Some(result) = current_state.check_result() {
+                break result;
             }
-
             let move_count = current_state.available_moves.len();
             let random_index = self.rng.gen_range(0..move_count);
-            let random_action = current_state.available_moves.swap_remove(random_index);
-            let next_state = random_action.execute(current_state);
-            let next_node = self.tree.insert(current_index, next_state);
-            current_index = next_node;
+            let random_action = current_state.available_moves.get(random_index).unwrap();
+            action_history.push(*random_action);
+            current_state = random_action.execute(&current_state);
+        };
+
+        // store the result if a max score was reached
+        match result {
+            CraftResult::Finished(score)
+                if score >= 1.0 && score >= self.tree.nodes[0].state.max_score =>
+            {
+                let finished_index = self
+                    .execute_actions(expanded_index, action_history)
+                    .unwrap();
+                (finished_index, result)
+            }
+            _ => (expanded_index, result),
         }
     }
 
@@ -164,7 +190,12 @@ impl Simulator {
     pub fn search(&mut self, start_index: usize) -> &mut Self {
         for _ in 0..self.iterations {
             let selected_index = self.select(start_index);
-            let (end_index, result) = self.expand(selected_index);
+            let (end_index, result) = self.expand_and_rollout(selected_index);
+
+            if selected_index == end_index {
+                self.dead_ends_selected += 1;
+            }
+
             let score = match result {
                 CraftResult::Finished(s) => s,
                 CraftResult::Failed => 0.0,

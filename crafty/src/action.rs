@@ -213,7 +213,7 @@ impl Action {
                 .saturating_sub(Action::calc_durability_cost(&state, base_cost));
         }
 
-        if state.buffs.manipulation > 0 {
+        if state.buffs.manipulation > 0 && state.durability > 0 {
             state.durability = cmp::min(state.durability + 5, state.durability_max);
         }
 

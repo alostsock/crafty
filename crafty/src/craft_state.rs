@@ -47,6 +47,7 @@ pub struct CraftState {
     pub quality_factor: f32,
     /// Current step number, starting from 1
     pub step: u8,
+    pub step_max: u8,
     pub progress: u32,
     pub progress_target: u32,
     pub quality: u32,
@@ -96,6 +97,7 @@ impl CraftState {
         quality_factor: f32,
         progress_target: u32,
         quality_target: u32,
+        step_max: u8,
         durability: u32,
         cp: u32,
     ) -> Self {
@@ -103,6 +105,7 @@ impl CraftState {
             progress_factor,
             quality_factor,
             step: 1,
+            step_max,
             progress: 0,
             progress_target,
             quality: 0,
@@ -129,6 +132,13 @@ impl CraftState {
     /// Prune as many moves as possible to reduce the search space; adding some
     /// bias to improve move selection should be OK.
     pub fn determine_possible_moves(&mut self) {
+        if self.progress >= self.progress_target
+            || self.step >= self.step_max
+            || self.durability == 0
+        {
+            return;
+        }
+
         let mut available_moves = Action::ACTIONS.to_vec();
         available_moves.retain(|action| {
             use Action::*;
@@ -184,14 +194,22 @@ impl CraftState {
     pub fn score(&self) -> f64 {
         let quality_ratio = 1.0_f64.min(self.quality as f64 / self.quality_target as f64);
         // the fewer the steps, the higher this bonus will be
-        let fewer_steps_bonus = 0.2 / self.step as f64;
+        let fewer_steps_bonus = {
+            if quality_ratio == 1.0 {
+                0.2 / self.step as f64
+            } else {
+                0.0
+            }
+        };
         quality_ratio + fewer_steps_bonus
     }
 
-    pub fn check_result(&self, max_steps: u8) -> Option<CraftResult> {
+    pub fn check_result(&self) -> Option<CraftResult> {
         if self.progress >= self.progress_target {
             Some(CraftResult::Finished(self.score()))
-        } else if self.durability == 0 || self.step >= max_steps || self.available_moves.is_empty()
+        } else if self.durability == 0
+            || self.step >= self.step_max
+            || self.available_moves.is_empty()
         {
             Some(CraftResult::Failed)
         } else {

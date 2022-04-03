@@ -24,12 +24,15 @@ struct Args {
     /// The player's cp stat
     #[clap(index = 4)]
     cp: u32,
-    /// When searching, limits the number of simulations run (default: 100,000)
+    /// When searching, limits the number of random simulations run
     #[clap(short, long, default_value_t = 100_000_u32)]
     iterations: u32,
-    /// When searching, specifies the maximum number of steps allowed (default: 15)
+    /// When searching, limits the maximum number of steps allowed
     #[clap(short, long, default_value_t = 15_u8)]
     steps: u8,
+    /// When searching, sets a positive integer to use as a seed for RNG
+    #[clap(long)]
+    seed: Option<u64>,
 }
 
 fn main() -> Result<()> {
@@ -59,7 +62,7 @@ fn main() -> Result<()> {
     let recipe_options = data::recipes(recipe_job_level);
     let recipe = prompt_selection("recipe?", recipe_options)?;
 
-    let mut sim = Simulator::new(recipe, &player, args.iterations, args.steps, None);
+    let mut sim = Simulator::new(recipe, &player, args.iterations, args.steps, args.seed);
     let mut current_index = 0;
     loop {
         let state = &sim.tree.get_mut(current_index).state;
@@ -94,11 +97,20 @@ fn main() -> Result<()> {
                 }
             }
         } else {
-            println!("{}", cyan("\n  attempting to find the best path..."));
+            println!(
+                "{}",
+                cyan(
+                    format!(
+                        "\n  attempting to find the best solution under {} steps...",
+                        args.steps
+                    )
+                    .as_str()
+                )
+            );
 
             let instant = time::Instant::now();
             let (actions, end_state) = sim.search(current_index).solution();
-            let elapsed = instant.elapsed().as_secs();
+            let elapsed = instant.elapsed().as_secs_f64();
 
             println!(
                 "{}",
@@ -115,12 +127,14 @@ fn main() -> Result<()> {
             }
 
             println!(
-                "\n  {}",
+                "\n{}",
                 cyan(
                     format!(
-                        "states analyzed: {}, max score: {}",
+                        "est. memory used: {} bytes\nstates analyzed: {}\nmax score: {}\ndead ends selected: {}",
+                        sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
                         sim.tree.nodes.len(),
-                        end_state.max_score
+                        end_state.max_score,
+                        sim.dead_ends_selected
                     )
                     .as_str()
                 )
