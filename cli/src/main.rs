@@ -127,13 +127,13 @@ fn main() -> Result<()> {
             }
 
             println!(
-                "\n{}",
+                "{}",
                 cyan(
                     format!(
-                        "est. memory used: {} bytes\nstates analyzed: {}\nmax score: {}\ndead ends selected: {}",
+                        "\nmax score: {}\nest. memory used: {} bytes\nvisits: {}\ndead ends: {}",
+                        end_state.max_score,
                         sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
                         sim.tree.nodes.len(),
-                        end_state.max_score,
                         sim.dead_ends_selected
                     )
                     .as_str()
@@ -163,7 +163,7 @@ where
             .with_prompt(prompt)
             .items(items)
             .default(0)
-            .max_length(8)
+            .max_length(5)
             .interact_opt()?
             .context("no item selected")?;
         Ok(&items[selected])

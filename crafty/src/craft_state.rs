@@ -194,14 +194,21 @@ impl CraftState {
     pub fn score(&self) -> f64 {
         let quality_ratio = 1.0_f64.min(self.quality as f64 / self.quality_target as f64);
         // the fewer the steps, the higher this bonus will be
-        let fewer_steps_bonus = {
-            if quality_ratio == 1.0 {
-                0.2 / self.step as f64
+        let completion_bonus = {
+            if self.progress >= self.progress_target {
+                0.01
             } else {
                 0.0
             }
         };
-        quality_ratio + fewer_steps_bonus
+        let fewer_steps_bonus = {
+            if quality_ratio == 1.0 {
+                0.1 / self.step as f64
+            } else {
+                0.0
+            }
+        };
+        quality_ratio + completion_bonus + fewer_steps_bonus
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
