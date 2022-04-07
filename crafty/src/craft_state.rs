@@ -190,17 +190,12 @@ impl CraftState {
         self.available_moves = available_moves;
     }
 
-    /// Scores the current state with a value from 0 to slightly above 1.
+    /// Score a completed craft with a value from 0.01 to slightly above 1.
+    /// The minimum score should be greater than zero so that craft completion
+    /// is scored higher than non-completion, even when quality is low.
     pub fn score(&self) -> f64 {
         let quality_ratio = 1.0_f64.min(self.quality as f64 / self.quality_target as f64);
         // the fewer the steps, the higher this bonus will be
-        let completion_bonus = {
-            if self.progress >= self.progress_target {
-                0.01
-            } else {
-                0.0
-            }
-        };
         let fewer_steps_bonus = {
             if quality_ratio == 1.0 {
                 0.1 / self.step as f64
@@ -208,7 +203,7 @@ impl CraftState {
                 0.0
             }
         };
-        quality_ratio + completion_bonus + fewer_steps_bonus
+        0.01 + quality_ratio + fewer_steps_bonus
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
