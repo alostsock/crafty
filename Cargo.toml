@@ -1,8 +1,6 @@
 [workspace]
-
 members = [
   "crafty",
-  "recipe",
   "cli",
   "web"
 ]

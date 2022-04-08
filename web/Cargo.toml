@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 crafty = { path = "../crafty" }
-recipe = { path = "../recipe" }
 serde = { version = "1.0.132", features = ["derive"] }
 wasm-bindgen = { version = "0.2.79", features= ["serde-serialize"] }
 getrandom = { version = "0.2", features = ["js"] }

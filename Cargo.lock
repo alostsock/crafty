@@ -176,7 +176,6 @@ dependencies = [
  "crafty",
  "ctrlc",
  "dialoguer",
- "recipe",
 ]
 
 [[package]]
@@ -1245,7 +1244,6 @@ version = "0.1.0"
 dependencies = [
  "crafty",
  "getrandom",
- "recipe",
  "serde",
  "wasm-bindgen",
 ]
