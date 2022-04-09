@@ -208,6 +208,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "csv",
+ "enum_indexing",
  "phf",
  "phf_codegen",
  "pprof",

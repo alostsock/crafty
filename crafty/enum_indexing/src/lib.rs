@@ -1,4 +1,6 @@
-trait EnumIndexing {
+pub use enum_indexing_derive::EnumIndexing;
+
+pub trait EnumIndexing {
     fn index(&self) -> usize;
     fn from_index(index: usize) -> Option<Self>
     where

@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 enum_indexing_derive = { path = "enum_indexing_derive" }
+
+[lib]
+doctest = false
+bench = false
