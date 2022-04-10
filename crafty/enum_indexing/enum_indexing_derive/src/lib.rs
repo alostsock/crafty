@@ -17,7 +17,8 @@ pub fn enum_indexing_derive(input: TokenStream) -> TokenStream {
         );
     };
 
-    let variant_index: Vec<usize> = (0..enum_variants.len()).collect();
+    let variant_count: usize = enum_variants.len();
+    let variant_index: Vec<usize> = (0..variant_count).collect();
     let variant_name: Vec<Ident> = enum_variants.iter().map(|v| v.ident.clone()).collect();
 
     let tokens = quote! {
@@ -33,6 +34,10 @@ pub fn enum_indexing_derive(input: TokenStream) -> TokenStream {
                     #( #variant_index => Some(#name::#variant_name), )*
                     _ => None,
                 }
+            }
+
+            fn count() -> usize {
+                #variant_count
             }
         }
     };

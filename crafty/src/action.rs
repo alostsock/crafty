@@ -1,4 +1,4 @@
-use crate::craft_state::CraftState;
+use crate::CraftState;
 use enum_indexing::EnumIndexing;
 use std::{cmp, fmt};
 

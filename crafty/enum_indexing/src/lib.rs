@@ -5,6 +5,7 @@ pub trait EnumIndexing {
     fn from_index(index: usize) -> Option<Self>
     where
         Self: Sized;
+    fn count() -> usize;
 }
 
 #[cfg(test)]
@@ -35,5 +36,10 @@ mod tests {
             .map(|i| TestEnum::from_index(*i).unwrap())
             .collect();
         assert_eq!(variants, VARIANTS.to_vec());
+    }
+
+    #[test]
+    fn count_works() {
+        assert_eq!(TestEnum::count(), 3);
     }
 }

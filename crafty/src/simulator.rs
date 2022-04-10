@@ -1,6 +1,7 @@
-use crate::tree::Arena;
-use crate::{data, Action, CraftResult, CraftState, Player, Recipe};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use crate::{
+    action_values::ActionValues, data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe,
+};
+use rand::{distributions::WeightedIndex, prelude::Distribution, rngs::SmallRng, SeedableRng};
 
 #[derive(Clone, Copy)]
 pub struct SearchOptions {
@@ -18,6 +19,7 @@ pub struct SearchOptions {
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
+    action_values: ActionValues,
     pub iterations: u32,
     /// Amount of "dead ends" encountered. This means a node was selected, but there
     /// weren't any available moves.
@@ -68,6 +70,7 @@ impl Simulator {
 
         Simulator {
             tree: Arena::new(initial_state),
+            action_values: ActionValues::new(),
             iterations,
             dead_ends_selected: 0,
             rng: {
@@ -91,6 +94,7 @@ impl Simulator {
 
         Simulator {
             tree: Arena::new(state.clone()),
+            action_values: ActionValues::new(),
             iterations,
             dead_ends_selected: 0,
             rng: {
@@ -180,13 +184,12 @@ impl Simulator {
     fn expand_and_rollout(&mut self, initial_index: usize) -> (usize, CraftResult) {
         // expand once
         let initial_state = &mut self.tree.get_mut(initial_index).state;
-        let move_count = initial_state.available_moves.len();
-        // TODO: Currently there is a high chance of selecting a "dead end" due to how
-        // selection works. Additional heuristics should be added to avoid these.
-        if move_count == 0 {
-            return (initial_index, initial_state.check_result().unwrap());
+        if let Some(result) = initial_state.check_result() {
+            return (initial_index, result);
         }
-        let random_index = self.rng.gen_range(0..move_count);
+        let weighted_index =
+            WeightedIndex::new(&self.action_values.generate_weights(initial_state)).unwrap();
+        let random_index = weighted_index.sample(&mut self.rng);
         let random_action = initial_state.available_moves.swap_remove(random_index);
         let expanded_state = random_action.execute(initial_state);
         let expanded_index = self.tree.insert(initial_index, expanded_state);
@@ -198,8 +201,9 @@ impl Simulator {
             if let Some(result) = current_state.check_result() {
                 break result;
             }
-            let move_count = current_state.available_moves.len();
-            let random_index = self.rng.gen_range(0..move_count);
+            let weighted_index =
+                WeightedIndex::new(&self.action_values.generate_weights(&current_state)).unwrap();
+            let random_index = weighted_index.sample(&mut self.rng);
             let random_action = current_state.available_moves.get(random_index).unwrap();
             action_history.push(*random_action);
             current_state = random_action.execute(&current_state);
@@ -225,6 +229,7 @@ impl Simulator {
             current_node.state.visits += 1.0;
             current_node.state.score_sum += score;
             current_node.state.max_score = current_node.state.max_score.max(score);
+            self.action_values.record(&current_node.state, score);
 
             if current_index == target_index {
                 break;
@@ -270,6 +275,24 @@ impl Simulator {
                 actions.push(node.state.action.unwrap());
             }
         }
+
+        // for (buff_scores, (visits, action)) in self.action_values.buff_scores_by_action.iter().zip(
+        //     self.action_values
+        //         .visits_by_action
+        //         .iter()
+        //         .zip(Action::ACTIONS),
+        // ) {
+        //     let buffs = vec![
+        //         "innerq", "wn", "wn2", "manip", "gs", "inno", "vener", "maker", "musc",
+        //     ];
+        //     let scores = buff_scores.map(|s| s / visits);
+        //     let disp: Vec<String> = buffs
+        //         .iter()
+        //         .zip(scores)
+        //         .map(|(b, s)| format!("{} {:.3}", &b, &s))
+        //         .collect();
+        //     println!("{} {:?}", action, disp);
+        // }
 
         (actions, node.state.clone())
     }
