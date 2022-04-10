@@ -24,7 +24,7 @@ fn setup_sim(rng_seed: Option<u64>) -> Simulator {
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("basic rotation", |b| {
+    c.bench_function("rotation", |b| {
         b.iter_batched(
             || -> Simulator { setup_sim(None) },
             |mut sim| sim.execute_actions(black_box(0), black_box(ROTATION_1.to_vec())),
@@ -32,7 +32,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         )
     });
 
-    let mut group = c.benchmark_group("basic exploration");
+    let mut group = c.benchmark_group("search");
     group
         .warm_up_time(Duration::new(5, 0))
         .measurement_time(Duration::new(30, 0));

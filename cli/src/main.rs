@@ -24,13 +24,13 @@ struct Args {
     /// The player's cp stat
     #[clap(index = 4)]
     cp: u32,
-    /// When searching, limits the number of random simulations run
+    /// The number of simulations to run
     #[clap(short, long, default_value_t = 100_000_u32)]
     iterations: u32,
-    /// When searching, limits the maximum number of steps allowed
+    /// The maximum number of steps allowed
     #[clap(short, long, default_value_t = 15_u8)]
     steps: u8,
-    /// When searching, sets a positive integer to use as a seed for RNG
+    /// A positive integer for seeding RNG
     #[clap(long)]
     seed: Option<u64>,
 }

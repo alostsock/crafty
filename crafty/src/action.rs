@@ -183,7 +183,6 @@ impl Action {
             step: prev_state.step + 1,
             buffs: prev_state.buffs.clone(),
             action: Some(self),
-            prior: 1.0,
             score_sum: 0.0,
             max_score: 0.0,
             visits: 0.0,

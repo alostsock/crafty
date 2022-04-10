@@ -4,7 +4,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum CraftResult {
     /// Reached 100% progress. Include a score based on quality and steps
-    Finished(f64),
+    Finished(f32),
     /// Failed either because of durability loss or the step limit was reached
     Failed,
 }
@@ -63,14 +63,14 @@ pub struct CraftState {
 
     /// The action that led to this state
     pub action: Option<Action>,
-    /// The probability that this state will occur (action chance * condition chance)
-    pub prior: f64,
+    // The probability that this state will occur (action chance * condition chance)
+    // pub prior: f32,
     /// Sum of scores from this node onward
-    pub score_sum: f64,
+    pub score_sum: f32,
     /// Maximum score that can be obtained by following this node
-    pub max_score: f64,
+    pub max_score: f32,
     /// Number of times this node has been visited
-    pub visits: f64,
+    pub visits: f32,
     pub available_moves: Vec<Action>,
 }
 
@@ -118,7 +118,6 @@ impl CraftState {
             next_combo: None,
             buffs: Buffs::new(),
             action: None,
-            prior: 1.0,
             score_sum: 0.0,
             max_score: 0.0,
             visits: 0.0,
@@ -193,12 +192,12 @@ impl CraftState {
     /// Score a completed craft with a value from 0.01 to slightly above 1.
     /// The minimum score should be greater than zero so that craft completion
     /// is scored higher than non-completion, even when quality is low.
-    pub fn score(&self) -> f64 {
-        let quality_ratio = 1.0_f64.min(self.quality as f64 / self.quality_target as f64);
+    pub fn score(&self) -> f32 {
+        let quality_ratio = 1.0_f32.min(self.quality as f32 / self.quality_target as f32);
         // the fewer the steps, the higher this bonus will be
         let fewer_steps_bonus = {
             if quality_ratio == 1.0 {
-                0.1 / self.step as f64
+                0.1 / self.step as f32
             } else {
                 0.0
             }

@@ -6,12 +6,12 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 pub struct Simulator {
     pub tree: Arena<CraftState>,
     pub iterations: u32,
-    rng: SmallRng,
     pub dead_ends_selected: u64,
+    rng: SmallRng,
 }
 
 impl Simulator {
-    fn calculate_factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
+    fn factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
 
         let progress_div = recipe.progress_div as f32;
@@ -37,7 +37,7 @@ impl Simulator {
         max_steps: u8,
         rng_seed: Option<u64>,
     ) -> Self {
-        let (progress_factor, quality_factor) = Simulator::calculate_factors(player, recipe);
+        let (progress_factor, quality_factor) = Simulator::factors(player, recipe);
         let initial_state = CraftState::new(
             progress_factor,
             quality_factor,
@@ -91,8 +91,8 @@ impl Simulator {
     }
 
     /// Calculate the UCB1 score for a node
-    fn eval(&self, state: &CraftState, parent_visits: f64) -> f64 {
-        let visits = state.visits as f64;
+    fn eval(&self, state: &CraftState, parent_visits: f32) -> f32 {
+        let visits = state.visits as f32;
         let exploitation = state.score_sum / visits;
         let exploration = (2.0 * parent_visits.ln() / visits).sqrt();
         exploitation + exploration
@@ -171,7 +171,7 @@ impl Simulator {
         }
     }
 
-    fn backup(&mut self, start_index: usize, target_index: usize, score: f64) {
+    fn backup(&mut self, start_index: usize, target_index: usize, score: f32) {
         let mut current_index = start_index;
         loop {
             let current_node = &mut self.tree.get_mut(current_index);
@@ -270,7 +270,7 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3290, 3541, 649);
-        Simulator::new(&recipe, &player, 10_000, 30, Some(0))
+        Simulator::new(&recipe, &player, 10_000, 25, Some(123))
     }
 
     fn assert_craft(
@@ -340,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_panic_1() {
+    fn rotation_should_not_panic_1() {
         let actions = vec![
             Reflect,
             Manipulation,
@@ -362,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_panic_2() {
+    fn rotation_should_not_panic_2() {
         let actions = vec![
             MuscleMemory,
             Manipulation,
@@ -385,5 +385,11 @@ mod tests {
         ];
         let mut sim = setup_sim_2();
         sim.execute_actions(0, actions).unwrap();
+    }
+
+    #[test]
+    fn search_should_not_panic() {
+        let mut sim = setup_sim_2();
+        sim.search(0).solution();
     }
 }
