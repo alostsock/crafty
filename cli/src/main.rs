@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use crafty::{data, CraftResult, Player, Simulator};
+use crafty::{data, CraftResult, CraftState, Player, Simulator};
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
@@ -67,28 +67,21 @@ fn main() -> Result<()> {
     loop {
         let state = &sim.tree.get_mut(current_index).state;
 
-        println!(
-            "\n  step {:>2}: {}",
-            state.step,
-            green(state.to_string().as_str())
-        );
+        print_state(state);
 
-        if Confirm::new()
+        let manual = Confirm::new()
             .with_prompt("  continue manually?")
-            .interact()?
-        {
+            .interact()?;
+
+        if manual {
             // manually pick an action
             let mut actions = state.available_moves.clone();
             actions.sort_by_key(|k| format!("{}", k));
             let action = *prompt_selection("action?:", &actions)?;
-
             match sim.execute_actions(current_index, vec![action]) {
                 Ok(next_index) => current_index = next_index,
-                Err(CraftResult::Finished(score)) => {
-                    println!(
-                        "\nThe craft finished with a score of {}.",
-                        green(score.to_string().as_str())
-                    );
+                Err(CraftResult::Finished(_)) => {
+                    println!("{}", green("\nThe craft is complete"),);
                     break;
                 }
                 Err(CraftResult::Failed) => {
@@ -97,48 +90,31 @@ fn main() -> Result<()> {
                 }
             }
         } else {
-            println!(
-                "{}",
-                cyan(
-                    format!(
-                        "\n  attempting to find the best solution under {} steps...",
-                        args.steps
-                    )
-                    .as_str()
-                )
-            );
+            print_info(format!(
+                "\n  attempting to find the best solution under {} steps...",
+                args.steps
+            ));
 
             let instant = time::Instant::now();
             let (actions, end_state) = sim.search(current_index).solution();
             let elapsed = instant.elapsed().as_secs_f64();
 
-            println!(
-                "{}",
-                cyan(format!("  completed in {} seconds.", elapsed).as_str())
-            );
-            println!(
-                "\n  step {:>2}: {}",
-                end_state.step,
-                green(end_state.to_string().as_str()),
-            );
-            println!("{}", cyan("\n  actions taken:"));
+            print_info(format!("  completed in {elapsed} seconds."));
+
+            print_state(&end_state);
+
+            print_info("\n  actions taken:".to_string());
             for action in actions {
-                println!("  {:?}", action);
+                println!("  {action:?}");
             }
 
-            println!(
-                "{}",
-                cyan(
-                    format!(
-                        "\nmax score: {}\nest. memory used: {} bytes\nvisits: {}\ndead ends: {}",
-                        end_state.max_score,
-                        sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
-                        sim.tree.nodes.len(),
-                        sim.dead_ends_selected
-                    )
-                    .as_str()
-                )
-            );
+            print_info(format!(
+                "\nmax score: {}\nest. memory used: {} bytes\nvisits: {}\ndead ends: {}",
+                end_state.max_score,
+                sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
+                sim.tree.nodes.len(),
+                sim.dead_ends_selected
+            ));
             break;
         }
     }
@@ -170,6 +146,18 @@ where
     } else {
         Ok(&items[0])
     }
+}
+
+fn print_state(state: &CraftState) {
+    println!(
+        "\n  step {:>2}: {}",
+        state.step,
+        green(state.to_string().as_str())
+    );
+}
+
+fn print_info(info: String) {
+    println!("{}", cyan(info.as_str()));
 }
 
 fn cyan(s: &str) -> StyledObject<&str> {
