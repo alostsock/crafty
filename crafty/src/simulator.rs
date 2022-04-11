@@ -2,12 +2,28 @@ use crate::tree::Arena;
 use crate::{data, Action, CraftResult, CraftState, Player, Recipe};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
+#[derive(Clone, Copy)]
+pub struct SearchOptions {
+    /// Number of simulations to run
+    pub iterations: u32,
+    /// Maximum number of steps allowed for the craft
+    pub max_steps: u8,
+    /// Seed to use for RNG; entropy-based if None
+    pub rng_seed: Option<u64>,
+    /// The minimum score a craft has to reach for action history to be stored;
+    /// only stores ~100% HQ states if None
+    pub score_storage_threshold: Option<f32>,
+}
+
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
     pub iterations: u32,
+    /// Amount of "dead ends" encountered. This means a node was selected, but there
+    /// weren't any available moves.
     pub dead_ends_selected: u64,
     rng: SmallRng,
+    score_storage_threshold: f32,
 }
 
 impl Simulator {
@@ -30,14 +46,16 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    pub fn new(
-        recipe: &Recipe,
-        player: &Player,
-        iterations: u32,
-        max_steps: u8,
-        rng_seed: Option<u64>,
-    ) -> Self {
+    pub fn new(recipe: &Recipe, player: &Player, options: SearchOptions) -> Self {
         let (progress_factor, quality_factor) = Simulator::factors(player, recipe);
+
+        let SearchOptions {
+            iterations,
+            max_steps,
+            rng_seed,
+            score_storage_threshold,
+        } = options;
+
         let initial_state = CraftState::new(
             progress_factor,
             quality_factor,
@@ -51,6 +69,7 @@ impl Simulator {
         Simulator {
             tree: Arena::new(initial_state),
             iterations,
+            dead_ends_selected: 0,
             rng: {
                 if let Some(seed) = rng_seed {
                     SmallRng::seed_from_u64(seed)
@@ -58,7 +77,30 @@ impl Simulator {
                     SmallRng::from_entropy()
                 }
             },
+            score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
+        }
+    }
+
+    pub fn from_state(state: &CraftState, options: SearchOptions) -> Self {
+        let SearchOptions {
+            iterations,
+            max_steps: _,
+            rng_seed,
+            score_storage_threshold,
+        } = options;
+
+        Simulator {
+            tree: Arena::new(state.clone()),
+            iterations,
             dead_ends_selected: 0,
+            rng: {
+                if let Some(seed) = rng_seed {
+                    SmallRng::seed_from_u64(seed)
+                } else {
+                    SmallRng::from_entropy()
+                }
+            },
+            score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
         }
     }
 
@@ -66,13 +108,13 @@ impl Simulator {
         &mut self,
         start_index: usize,
         actions: Vec<Action>,
-    ) -> Result<usize, CraftResult> {
+    ) -> (usize, Option<CraftResult>) {
         let mut current_index = start_index;
         for action in actions {
             let current_state = &mut self.tree.get_mut(current_index).state;
 
             if let Some(result) = current_state.check_result() {
-                return Err(result);
+                return (current_index, Some(result));
             }
 
             if let Some(index) = current_state
@@ -87,7 +129,13 @@ impl Simulator {
             let next_index = self.tree.insert(current_index, next_state);
             current_index = next_index;
         }
-        Ok(current_index)
+        // check state after performing last action
+        let current_state = &self.tree.get_mut(current_index).state;
+        if let Some(result) = current_state.check_result() {
+            (current_index, Some(result))
+        } else {
+            (current_index, None)
+        }
     }
 
     /// Calculate the UCB1 score for a node
@@ -160,12 +208,11 @@ impl Simulator {
         // store the result if a max score was reached
         match result {
             CraftResult::Finished(score)
-                if score >= 0.75 && score >= self.tree.nodes[0].state.max_score =>
+                if score >= self.score_storage_threshold
+                    && score >= self.tree.nodes[0].state.max_score =>
             {
-                let finished_index = self
-                    .execute_actions(expanded_index, action_history)
-                    .unwrap();
-                (finished_index, result)
+                let (terminal_index, _) = self.execute_actions(expanded_index, action_history);
+                (terminal_index, result)
             }
             _ => (expanded_index, result),
         }
@@ -232,7 +279,7 @@ impl Simulator {
 mod tests {
     use crate::craft_state::CraftState;
 
-    use super::{Action, Player, Recipe, Simulator};
+    use super::*;
     use Action::*;
 
     fn setup_sim_1() -> Simulator {
@@ -251,7 +298,13 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
-        Simulator::new(&recipe, &player, 10_000, 15, Some(0))
+        let options = SearchOptions {
+            iterations: 10_000,
+            max_steps: 15,
+            rng_seed: Some(0),
+            score_storage_threshold: None,
+        };
+        Simulator::new(&recipe, &player, options)
     }
 
     fn setup_sim_2() -> Simulator {
@@ -270,7 +323,13 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3290, 3541, 649);
-        Simulator::new(&recipe, &player, 10_000, 25, Some(123))
+        let options = SearchOptions {
+            iterations: 10_000,
+            max_steps: 25,
+            rng_seed: Some(123),
+            score_storage_threshold: None,
+        };
+        Simulator::new(&recipe, &player, options)
     }
 
     fn assert_craft(
@@ -281,9 +340,7 @@ mod tests {
         durability: u32,
         cp: u32,
     ) -> &CraftState {
-        let result_node = sim
-            .execute_actions(0, actions)
-            .expect("craft finished unexpectedly");
+        let (result_node, _) = sim.execute_actions(0, actions);
         let result = &sim.tree.get(result_node).state;
         assert_eq!(result.progress, progress);
         assert_eq!(result.quality, quality);
@@ -358,7 +415,7 @@ mod tests {
             Groundwork,
         ];
         let mut sim = setup_sim_1();
-        sim.execute_actions(0, actions).unwrap();
+        sim.execute_actions(0, actions);
     }
 
     #[test]
@@ -384,7 +441,7 @@ mod tests {
             ByregotsBlessing,
         ];
         let mut sim = setup_sim_2();
-        sim.execute_actions(0, actions).unwrap();
+        sim.execute_actions(0, actions);
     }
 
     #[test]

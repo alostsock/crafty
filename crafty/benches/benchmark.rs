@@ -1,4 +1,4 @@
-use crafty::{Action, Player, Recipe, Simulator};
+use crafty::{Action, Player, Recipe, SearchOptions, Simulator};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
@@ -20,7 +20,13 @@ fn setup_sim(rng_seed: Option<u64>) -> Simulator {
         conditions_flag: 15,
     };
     let player = Player::new(90, 3304, 3374, 575);
-    Simulator::new(&recipe, &player, 50_000, 15, rng_seed)
+    let options = SearchOptions {
+        iterations: 50_000,
+        max_steps: 15,
+        rng_seed,
+        score_storage_threshold: None,
+    };
+    Simulator::new(&recipe, &player, options)
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
