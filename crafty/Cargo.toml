@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 recipe = { path = "recipe" }
-enum_indexing = { path = "enum_indexing" }
 phf = "0.10.0"
 rand = "0.8.4"
 
