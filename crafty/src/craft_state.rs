@@ -154,6 +154,14 @@ impl CraftState {
                 return false;
             }
 
+            // don't allow quality moves under veneration
+            if self.buffs.veneration > 0
+                && attrs.quality_efficiency.is_some()
+                && attrs.progress_efficiency.is_none()
+            {
+                return false;
+            }
+
             // don't allow increases to quality if already at max
             if self.quality >= self.quality_target && attrs.quality_efficiency.is_some() {
                 return false;
@@ -178,8 +186,8 @@ impl CraftState {
                 // don't allow master's mend too early
                 MastersMend => self.durability_max - self.durability <= 10,
                 // don't allow reapplying buffs too early
-                WasteNot | WasteNotII => self.buffs.waste_not <= 1 && self.buffs.waste_not_ii <= 2,
-                Manipulation => self.buffs.manipulation <= 2,
+                WasteNot | WasteNotII => self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0,
+                Manipulation => self.buffs.manipulation == 0,
                 GreatStrides => self.buffs.great_strides == 0,
                 Veneration => self.buffs.veneration == 0,
                 Innovation => self.buffs.innovation == 0,

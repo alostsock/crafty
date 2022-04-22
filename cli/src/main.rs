@@ -165,7 +165,7 @@ fn search_stepwise(
         }
 
         let chosen_action = solution_actions[0];
-        state = dbg!(chosen_action).execute(&state);
+        state = chosen_action.execute(&state);
         actions.push(chosen_action);
     }
 
