@@ -6,6 +6,7 @@ use dialoguer::{
     theme::ColorfulTheme,
     Confirm, Input, Select,
 };
+use rayon::prelude::*;
 use std::time;
 
 /// A ffxiv crafting tool
@@ -27,9 +28,12 @@ struct Args {
     /// Search mode (stepwise/oneshot)
     #[clap(short, long, default_value_t = SearchMode::Stepwise)]
     mode: SearchMode,
-    /// The number of simulations to run
-    #[clap(short, long, default_value_t = 500_000_u32)]
-    iterations: u32,
+    /// The number craft simulations to run per search
+    #[clap(short = 'i', long, default_value_t = 500_000_u32)]
+    search_iterations: u32,
+    /// The number of searches to run in parallel
+    #[clap(short = 'p', long, default_value_t = 1_u16)]
+    search_pool: u16,
     /// The maximum number of steps allowed
     #[clap(short, long, default_value_t = 30_u8)]
     steps: u8,
@@ -77,7 +81,7 @@ fn main() -> Result<()> {
     let recipe = prompt_recipe()?;
 
     let search_options = SearchOptions {
-        iterations: args.iterations,
+        iterations: args.search_iterations,
         max_steps: args.steps,
         rng_seed: args.seed,
         score_storage_threshold: Some(0.75),
@@ -120,14 +124,24 @@ fn main() -> Result<()> {
             ));
 
             let instant = time::Instant::now();
-            let (actions, result_state) = match args.mode {
-                SearchMode::Stepwise => {
-                    search_stepwise(state.clone(), action_history, search_options)
-                }
-                SearchMode::Oneshot => {
-                    search_oneshot(state.clone(), action_history, search_options)
-                }
-            };
+
+            let (actions, result_state) = (0..args.search_pool)
+                .into_par_iter()
+                .map(|_| match args.mode {
+                    SearchMode::Stepwise => Simulator::search_stepwise(
+                        state.clone(),
+                        action_history.clone(),
+                        search_options,
+                    ),
+                    SearchMode::Oneshot => Simulator::search_oneshot(
+                        state.clone(),
+                        action_history.clone(),
+                        search_options,
+                    ),
+                })
+                .max_by(|(_, a), (_, b)| a.max_score.partial_cmp(&b.max_score).unwrap())
+                .unwrap();
+
             let elapsed = instant.elapsed().as_secs_f64();
             print_info(format!("  completed in {elapsed} seconds."));
 
@@ -143,53 +157,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn search_stepwise(
-    state: CraftState,
-    action_history: Vec<Action>,
-    options: SearchOptions,
-) -> (Vec<Action>, CraftState) {
-    // only store perfect scores to save on memory
-    let options = SearchOptions {
-        score_storage_threshold: None,
-        ..options
-    };
-
-    let mut state = state;
-    let mut actions = action_history.clone();
-    while state.check_result().is_none() {
-        let mut sim = Simulator::from_state(&state, options);
-        let (solution_actions, solution_state) = sim.search(0).solution();
-
-        if solution_state.max_score >= 1.0 {
-            return ([action_history, solution_actions].concat(), solution_state);
-        }
-
-        let chosen_action = solution_actions[0];
-        state = chosen_action.execute(&state);
-        actions.push(chosen_action);
-    }
-
-    (actions, state)
-}
-
-fn search_oneshot(
-    state: CraftState,
-    action_history: Vec<Action>,
-    options: SearchOptions,
-) -> (Vec<Action>, CraftState) {
-    let mut sim = Simulator::from_state(&state, options);
-    let (actions, result_state) = sim.search(0).solution();
-
-    print_info(format!(
-        "  max score: {}\n  est. memory used: {} bytes\n  nodes: {}",
-        result_state.max_score,
-        sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
-        sim.tree.nodes.len(),
-    ));
-
-    ([action_history, actions].concat(), result_state)
-}
-
 fn is_between(value: u32, min: u32, max: u32, label: &str) -> Result<()> {
     if value >= min && value <= max {
         Ok(())
@@ -203,8 +170,9 @@ fn validate_args(args: &Args) -> Result<()> {
     is_between(args.craftsmanship, 1, 5000, "craftsmanship")?;
     is_between(args.control, 1, 5000, "control")?;
     is_between(args.cp, 1, 700, "cp")?;
-    is_between(args.iterations, 100, 10_000_000, "iterations")?;
-    is_between(u32::from(args.steps), 5, 50, "steps")?;
+    is_between(args.search_iterations, 100, 10_000_000, "iteration count")?;
+    is_between(u32::from(args.search_pool), 1, 10_000, "search pool")?;
+    is_between(u32::from(args.steps), 5, 50, "max steps")?;
     Ok(())
 }
 

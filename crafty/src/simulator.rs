@@ -273,6 +273,50 @@ impl Simulator {
 
         (actions, node.state.clone())
     }
+
+    /// Search for good actions step by step. Runs a new simulation from
+    /// scratch for each action, and picks the best next action.
+    pub fn search_stepwise(
+        state: CraftState,
+        action_history: Vec<Action>,
+        search_options: SearchOptions,
+    ) -> (Vec<Action>, CraftState) {
+        // only store perfect scores to save on memory
+        let search_options = SearchOptions {
+            score_storage_threshold: None,
+            ..search_options
+        };
+
+        let mut state = state;
+        let mut actions = action_history.clone();
+        while state.check_result().is_none() {
+            let mut sim = Simulator::from_state(&state, search_options);
+            let (solution_actions, solution_state) = sim.search(0).solution();
+
+            if solution_state.max_score >= 1.0 {
+                return ([action_history, solution_actions].concat(), solution_state);
+            }
+
+            let chosen_action = solution_actions[0];
+            state = chosen_action.execute(&state);
+            actions.push(chosen_action);
+        }
+
+        (actions, state)
+    }
+
+    /// Constructs a single large tree and picks the action path that results in
+    /// the highest score.
+    pub fn search_oneshot(
+        state: CraftState,
+        action_history: Vec<Action>,
+        search_options: SearchOptions,
+    ) -> (Vec<Action>, CraftState) {
+        let mut sim = Simulator::from_state(&state, search_options);
+        let (actions, result_state) = sim.search(0).solution();
+
+        ([action_history, actions].concat(), result_state)
+    }
 }
 
 #[cfg(test)]
@@ -448,5 +492,13 @@ mod tests {
     fn search_should_not_panic() {
         let mut sim = setup_sim_2();
         sim.search(0).solution();
+        // TODO: integrate into this test
+        //
+        // print_info(format!(
+        //     "  max score: {}\n  est. memory used: {} bytes\n  nodes: {}",
+        //     result_state.max_score,
+        //     sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
+        //     sim.tree.nodes.len(),
+        // ));
     }
 }
