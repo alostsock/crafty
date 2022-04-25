@@ -149,20 +149,22 @@ impl CraftState {
                 }
             }
 
-            // only allow certain moves after observe
+            // only allow certain moves after Observe
             if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
                 return false;
             }
 
-            // don't allow quality moves under veneration
-            if self.buffs.veneration > 0
-                && attrs.quality_efficiency.is_some()
-                && attrs.progress_efficiency.is_none()
-            {
+            // don't allow quality moves under Muscle Memory
+            if self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
                 return false;
             }
 
-            // don't allow increases to quality if already at max
+            // don't allow quality moves under Veneration
+            if self.buffs.veneration > 0 && attrs.quality_efficiency.is_some() {
+                return false;
+            }
+
+            // don't allow quality moves at max quality
             if self.quality >= self.quality_target && attrs.quality_efficiency.is_some() {
                 return false;
             }
@@ -174,16 +176,16 @@ impl CraftState {
                 PrudentSynthesis | PrudentTouch => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
-                // don't allow observe if observing; should also have enough CP to follow up
+                // don't allow Observe if observing; should also have enough CP to follow up
                 Observe => !self.observe && self.cp >= 5,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
-                // don't allow downgraded groundwork
+                // only allow Groundwork under Veneration, and don't allow downgraded Groundwork
                 Groundwork => {
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
-                    self.durability >= cost
+                    self.buffs.veneration > 0 && self.durability >= cost
                 }
-                // don't allow master's mend too early
+                // don't allow Master's Mend too early
                 MastersMend => self.durability_max - self.durability <= 10,
                 // don't allow reapplying buffs too early
                 WasteNot | WasteNotII => self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0,

@@ -125,6 +125,7 @@ fn main() -> Result<()> {
 
             let instant = time::Instant::now();
 
+            // Run multiple simulations in parallel, and take the one with the max score
             let (actions, result_state) = (0..args.search_pool)
                 .into_par_iter()
                 .map(|_| match args.mode {

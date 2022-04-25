@@ -321,8 +321,6 @@ impl Simulator {
 
 #[cfg(test)]
 mod tests {
-    use crate::craft_state::CraftState;
-
     use super::*;
     use Action::*;
 
@@ -438,6 +436,27 @@ mod tests {
             ByregotsBlessing,
         ];
         assert_craft(&mut setup_sim_1(), actions, 1150, 1925, 80, 163);
+    }
+
+    #[test]
+    fn trained_finesse_procs() {
+        let actions = vec![
+            Reflect,
+            WasteNot,
+            PreparatoryTouch,
+            PreparatoryTouch,
+            BasicTouch,
+            StandardTouch,
+            PrudentTouch,
+            PreparatoryTouch,
+        ];
+        let mut sim = setup_sim_1();
+        let (index, _) = sim.execute_actions(0, actions);
+        let state = &sim.tree.get(index).state;
+        // 10 stacks of IQ
+        assert_eq!(10, state.buffs.inner_quiet);
+        // should proc Trained Finesse
+        assert!(state.available_moves.iter().any(|&a| a == TrainedFinesse));
     }
 
     #[test]
