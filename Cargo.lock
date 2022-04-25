@@ -209,6 +209,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "csv",
+ "enum_indexing",
  "phf",
  "phf_codegen",
  "pprof",
@@ -361,6 +362,21 @@ name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
+name = "enum_indexing"
+version = "0.1.0"
+dependencies = [
+ "enum_indexing_derive",
+]
+
+[[package]]
+name = "enum_indexing_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "fastrand"

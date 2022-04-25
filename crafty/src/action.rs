@@ -1,4 +1,5 @@
 use crate::craft_state::CraftState;
+use enum_indexing::EnumIndexing;
 use std::{cmp, fmt};
 
 pub struct ActionAttributes {
@@ -30,7 +31,7 @@ macro_rules! create_actions {
             )
         ),+ $(,)?
     ) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIndexing)]
         pub enum Action {
             $($action_name,)*
         }
