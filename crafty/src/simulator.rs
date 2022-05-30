@@ -187,8 +187,8 @@ impl Simulator {
         if let Some(result) = initial_state.check_result() {
             return (initial_index, result);
         }
-        let weighted_index =
-            WeightedIndex::new(&self.action_values.generate_weights(initial_state)).unwrap();
+        let weights = self.action_values.generate_weights(initial_state);
+        let weighted_index = WeightedIndex::new(&weights).unwrap();
         let random_index = weighted_index.sample(&mut self.rng);
         let random_action = initial_state.available_moves.swap_remove(random_index);
         let expanded_state = random_action.execute(initial_state);
@@ -201,8 +201,8 @@ impl Simulator {
             if let Some(result) = current_state.check_result() {
                 break result;
             }
-            let weighted_index =
-                WeightedIndex::new(&self.action_values.generate_weights(&current_state)).unwrap();
+            let weights = &self.action_values.generate_weights(&current_state);
+            let weighted_index = WeightedIndex::new(weights).unwrap();
             let random_index = weighted_index.sample(&mut self.rng);
             let random_action = current_state.available_moves.get(random_index).unwrap();
             action_history.push(*random_action);
@@ -275,24 +275,6 @@ impl Simulator {
                 actions.push(node.state.action.unwrap());
             }
         }
-
-        // for (buff_scores, (visits, action)) in self.action_values.buff_scores_by_action.iter().zip(
-        //     self.action_values
-        //         .visits_by_action
-        //         .iter()
-        //         .zip(Action::ACTIONS),
-        // ) {
-        //     let buffs = vec![
-        //         "innerq", "wn", "wn2", "manip", "gs", "inno", "vener", "maker", "musc",
-        //     ];
-        //     let scores = buff_scores.map(|s| s / visits);
-        //     let disp: Vec<String> = buffs
-        //         .iter()
-        //         .zip(scores)
-        //         .map(|(b, s)| format!("{} {:.3}", &b, &s))
-        //         .collect();
-        //     println!("{} {:?}", action, disp);
-        // }
 
         (actions, node.state.clone())
     }
