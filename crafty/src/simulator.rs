@@ -299,13 +299,13 @@ impl Simulator {
         };
 
         let mut state = state;
-        let mut actions = action_history.clone();
+        let mut actions = action_history;
         while state.check_result().is_none() {
             let mut sim = Self::from_state(&state, search_options);
             let (solution_actions, solution_state) = sim.search(0).solution();
 
             if solution_state.max_score >= 1.0 {
-                return ([action_history, solution_actions].concat(), solution_state);
+                return ([actions, solution_actions].concat(), solution_state);
             }
 
             let chosen_action = solution_actions[0];
