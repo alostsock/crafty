@@ -147,7 +147,8 @@ fn main() -> Result<()> {
             print_info(format!("  completed in {elapsed} seconds."));
 
             print_state(&result_state);
-            print_info("\n  actions taken:".to_string());
+            let action_count = actions.len();
+            print_info(format!("\n  {action_count} actions taken:"));
             for action in actions {
                 println!("  {action:?}");
             }

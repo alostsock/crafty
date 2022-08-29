@@ -1,7 +1,7 @@
 use crate::{
-    action_values::ActionValues, data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe,
+    action_data::ActionData, data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe,
 };
-use rand::{distributions::WeightedIndex, prelude::Distribution, rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[derive(Clone, Copy)]
 pub struct SearchOptions {
@@ -19,7 +19,7 @@ pub struct SearchOptions {
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
-    action_values: ActionValues,
+    pub action_data: ActionData,
     pub iterations: u32,
     /// Amount of "dead ends" encountered. This means a node was selected, but there
     /// weren't any available moves.
@@ -70,7 +70,7 @@ impl Simulator {
 
         Simulator {
             tree: Arena::new(initial_state),
-            action_values: ActionValues::new(),
+            action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
             rng: {
@@ -94,7 +94,7 @@ impl Simulator {
 
         Simulator {
             tree: Arena::new(state.clone()),
-            action_values: ActionValues::new(),
+            action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
             rng: {
@@ -135,19 +135,20 @@ impl Simulator {
         }
         // check state after performing last action
         let current_state = &self.tree.get_mut(current_index).state;
-        if let Some(result) = current_state.check_result() {
-            (current_index, Some(result))
-        } else {
-            (current_index, None)
-        }
+        (current_index, current_state.check_result())
     }
 
     /// Calculate the UCB1 score for a node
-    fn eval(&self, state: &CraftState, parent_visits: f32) -> f32 {
+    fn eval(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
         let visits = state.visits as f32;
         let exploitation = state.score_sum / visits;
-        let exploration = (2.0 * parent_visits.ln() / visits).sqrt();
-        exploitation + exploration
+        // picking an arbitrary constant here
+        let exploration = (2.0 * parent_state.visits.ln() / visits).sqrt();
+
+        // another arbitrary constant
+        let action_value = 1.0 * self.action_data.score(&state.action.unwrap(), parent_state);
+
+        exploitation + exploration + action_value
     }
 
     /// Traverses the tree to find a good candidate node to expand.
@@ -163,14 +164,13 @@ impl Simulator {
             }
 
             // select the node with the highest score
-            let parent_visits = selected_node.state.visits;
             selected_index = *selected_node
                 .children
                 .iter()
-                .max_by(|a, b| {
-                    let a_reward = self.eval(&self.tree.get(**a).state, parent_visits);
-                    let b_reward = self.eval(&self.tree.get(**b).state, parent_visits);
-                    a_reward.partial_cmp(&b_reward).unwrap()
+                .max_by(|&a, &b| {
+                    let a_score = self.eval(&self.tree.get(*a).state, &selected_node.state);
+                    let b_score = self.eval(&self.tree.get(*b).state, &selected_node.state);
+                    a_score.partial_cmp(&b_score).unwrap()
                 })
                 .unwrap();
         }
@@ -187,9 +187,7 @@ impl Simulator {
         if let Some(result) = initial_state.check_result() {
             return (initial_index, result);
         }
-        let weights = self.action_values.generate_weights(initial_state);
-        let weighted_index = WeightedIndex::new(&weights).unwrap();
-        let random_index = weighted_index.sample(&mut self.rng);
+        let random_index = self.rng.gen_range(0..initial_state.available_moves.len());
         let random_action = initial_state.available_moves.swap_remove(random_index);
         let expanded_state = random_action.execute(initial_state);
         let expanded_index = self.tree.insert(initial_index, expanded_state);
@@ -201,9 +199,7 @@ impl Simulator {
             if let Some(result) = current_state.check_result() {
                 break result;
             }
-            let weights = &self.action_values.generate_weights(&current_state);
-            let weighted_index = WeightedIndex::new(weights).unwrap();
-            let random_index = weighted_index.sample(&mut self.rng);
+            let random_index = self.rng.gen_range(0..current_state.available_moves.len());
             let random_action = current_state.available_moves.get(random_index).unwrap();
             action_history.push(*random_action);
             current_state = random_action.execute(&current_state);
@@ -225,11 +221,22 @@ impl Simulator {
     fn backup(&mut self, start_index: usize, target_index: usize, score: f32) {
         let mut current_index = start_index;
         loop {
+            // Need to borrow current_node immutably first. Record action values here.
+            let current_node = self.tree.get(current_index);
+            if current_node.parent.is_some() {
+                let parent_node = self.tree.get(current_node.parent.unwrap());
+                self.action_data.record(
+                    &current_node.state.action.unwrap(),
+                    &parent_node.state,
+                    score,
+                );
+            }
+
+            // Mutate current node stats
             let current_node = &mut self.tree.get_mut(current_index);
             current_node.state.visits += 1.0;
             current_node.state.score_sum += score;
             current_node.state.max_score = current_node.state.max_score.max(score);
-            self.action_values.record(&current_node.state, score);
 
             if current_index == target_index {
                 break;
@@ -264,9 +271,9 @@ impl Simulator {
             let next_index: usize = *node
                 .children
                 .iter()
-                .max_by(|a, b| {
-                    let a_score = self.tree.get(**a).state.max_score;
-                    let b_score = self.tree.get(**b).state.max_score;
+                .max_by(|&a, &b| {
+                    let a_score = self.tree.get(*a).state.max_score;
+                    let b_score = self.tree.get(*b).state.max_score;
                     a_score.partial_cmp(&b_score).unwrap()
                 })
                 .unwrap();
@@ -319,7 +326,6 @@ impl Simulator {
     ) -> (Vec<Action>, CraftState) {
         let mut sim = Simulator::from_state(&state, search_options);
         let (actions, result_state) = sim.search(0).solution();
-
         ([action_history, actions].concat(), result_state)
     }
 }

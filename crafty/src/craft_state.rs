@@ -197,10 +197,10 @@ impl CraftState {
                 Observe => !self.observe && self.cp >= 5,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
-                // only allow Groundwork under Veneration, and don't allow downgraded Groundwork
+                // don't allow downgraded Groundwork
                 Groundwork => {
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
-                    self.buffs.veneration > 0 && self.durability >= cost
+                    self.durability >= cost
                 }
                 // don't allow Master's Mend too early
                 MastersMend => self.durability_max - self.durability <= 10,
@@ -216,20 +216,17 @@ impl CraftState {
         self.available_moves = available_moves;
     }
 
-    /// Score a completed craft with a value from 0.01 to slightly above 1.
+    /// This assumes the craft is complete, and scores it from 0.01 to slightly above 1.
     /// The minimum score should be greater than zero so that craft completion
     /// is scored higher than non-completion, even when quality is low.
     pub fn score(&self) -> f32 {
         let quality_ratio = 1.0_f32.min(self.quality as f32 / self.quality_target as f32);
+
+        let completion_bonus = 0.01;
+
         // the fewer the steps, the higher this bonus will be
-        let fewer_steps_bonus = {
-            if quality_ratio == 1.0 {
-                0.1 / self.step as f32
-            } else {
-                0.0
-            }
-        };
-        0.01 + quality_ratio + fewer_steps_bonus
+        let fewer_steps_bonus = 0.1 / self.step as f32;
+        quality_ratio + completion_bonus + fewer_steps_bonus
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
