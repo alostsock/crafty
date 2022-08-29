@@ -9,10 +9,10 @@ pub struct SearchOptions {
     pub iterations: u32,
     /// Maximum number of steps allowed for the craft
     pub max_steps: u8,
-    /// Seed to use for RNG; entropy-based if None
+    /// Numerical seed to use for RNG. Randomly picked if None
     pub rng_seed: Option<u64>,
-    /// The minimum score a craft has to reach for action history to be stored;
-    /// only stores ~100% HQ states if None
+    /// A memory optimization option that specifies the minimum score a craft has to reach for
+    /// action history to be stored. Only stores ~100% HQ states if None.
     pub score_storage_threshold: Option<f32>,
 }
 
@@ -21,9 +21,10 @@ pub struct Simulator {
     pub tree: Arena<CraftState>,
     pub action_data: ActionData,
     pub iterations: u32,
-    /// Amount of "dead ends" encountered. This means a node was selected, but there
-    /// weren't any available moves.
+    /// Amount of "dead ends" encountered. This means a node was selected, but there weren't any
+    /// available moves.
     pub dead_ends_selected: u64,
+    pub rng_seed: u64,
     rng: SmallRng,
     score_storage_threshold: f32,
 }
@@ -48,8 +49,12 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
+    fn random_seed() -> u64 {
+        SmallRng::from_entropy().gen()
+    }
+
     pub fn new(recipe: &Recipe, player: &Player, options: SearchOptions) -> Self {
-        let (progress_factor, quality_factor) = Simulator::factors(player, recipe);
+        let (progress_factor, quality_factor) = Self::factors(player, recipe);
 
         let SearchOptions {
             iterations,
@@ -68,18 +73,15 @@ impl Simulator {
             player.cp,
         );
 
-        Simulator {
+        let rng_seed = rng_seed.unwrap_or_else(Self::random_seed);
+
+        Self {
             tree: Arena::new(initial_state),
             action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
-            rng: {
-                if let Some(seed) = rng_seed {
-                    SmallRng::seed_from_u64(seed)
-                } else {
-                    SmallRng::from_entropy()
-                }
-            },
+            rng_seed,
+            rng: SmallRng::seed_from_u64(rng_seed),
             score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
         }
     }
@@ -87,23 +89,20 @@ impl Simulator {
     pub fn from_state(state: &CraftState, options: SearchOptions) -> Self {
         let SearchOptions {
             iterations,
-            max_steps: _,
             rng_seed,
             score_storage_threshold,
+            ..
         } = options;
 
-        Simulator {
+        let rng_seed = rng_seed.unwrap_or_else(Self::random_seed);
+
+        Self {
             tree: Arena::new(state.clone()),
             action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
-            rng: {
-                if let Some(seed) = rng_seed {
-                    SmallRng::seed_from_u64(seed)
-                } else {
-                    SmallRng::from_entropy()
-                }
-            },
+            rng_seed,
+            rng: SmallRng::seed_from_u64(rng_seed),
             score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
         }
     }
@@ -302,7 +301,7 @@ impl Simulator {
         let mut state = state;
         let mut actions = action_history.clone();
         while state.check_result().is_none() {
-            let mut sim = Simulator::from_state(&state, search_options);
+            let mut sim = Self::from_state(&state, search_options);
             let (solution_actions, solution_state) = sim.search(0).solution();
 
             if solution_state.max_score >= 1.0 {
@@ -324,7 +323,7 @@ impl Simulator {
         action_history: Vec<Action>,
         search_options: SearchOptions,
     ) -> (Vec<Action>, CraftState) {
-        let mut sim = Simulator::from_state(&state, search_options);
+        let mut sim = Self::from_state(&state, search_options);
         let (actions, result_state) = sim.search(0).solution();
         ([action_history, actions].concat(), result_state)
     }
