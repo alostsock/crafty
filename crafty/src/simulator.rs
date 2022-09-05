@@ -1,6 +1,4 @@
-use crate::{
-    action_data::ActionData, data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe,
-};
+use crate::{data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[derive(Clone, Copy)]
@@ -19,7 +17,6 @@ pub struct SearchOptions {
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
-    pub action_data: ActionData,
     pub iterations: u32,
     /// Amount of "dead ends" encountered. This means a node was selected, but there weren't any
     /// available moves.
@@ -77,7 +74,6 @@ impl Simulator {
 
         Self {
             tree: Arena::new(initial_state),
-            action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
             rng_seed,
@@ -98,7 +94,6 @@ impl Simulator {
 
         Self {
             tree: Arena::new(state.clone()),
-            action_data: ActionData::new(),
             iterations,
             dead_ends_selected: 0,
             rng_seed,
@@ -144,10 +139,8 @@ impl Simulator {
         // picking an arbitrary constant here
         let exploration = (2.0 * parent_state.visits.ln() / visits).sqrt();
 
-        // another arbitrary constant
-        let action_value = 1.0 * self.action_data.score(&state.action.unwrap(), parent_state);
 
-        exploitation + exploration + action_value
+        exploitation + exploration
     }
 
     /// Traverses the tree to find a good candidate node to expand.
@@ -220,17 +213,6 @@ impl Simulator {
     fn backup(&mut self, start_index: usize, target_index: usize, score: f32) {
         let mut current_index = start_index;
         loop {
-            // Need to borrow current_node immutably first. Record action values here.
-            let current_node = self.tree.get(current_index);
-            if current_node.parent.is_some() {
-                let parent_node = self.tree.get(current_node.parent.unwrap());
-                self.action_data.record(
-                    &current_node.state.action.unwrap(),
-                    &parent_node.state,
-                    score,
-                );
-            }
-
             // Mutate current node stats
             let current_node = &mut self.tree.get_mut(current_index);
             current_node.state.visits += 1.0;
