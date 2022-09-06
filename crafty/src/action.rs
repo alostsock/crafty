@@ -62,7 +62,7 @@ macro_rules! create_actions {
 create_actions!(
     BasicSynthesis(progress 1.2, durability 10,),
     BasicTouch(quality 1.0, durability 10, cp 18, effect |state| {
-        state.next_combo = Some(Action::StandardTouch);
+        state.next_combo_action = Some(Action::StandardTouch);
     }),
     MastersMend(cp 88, effect |state| {
         state.durability = cmp::min(state.durability + 30, state.durability_max);
@@ -80,8 +80,8 @@ create_actions!(
         state.buffs.veneration = 4;
     }),
     StandardTouch(quality 1.25, durability 10, cp 32, effect |state| {
-        if state.next_combo == Some(Action::StandardTouch) {
-            state.next_combo = Some(Action::AdvancedTouch);
+        if state.next_combo_action == Some(Action::StandardTouch) {
+            state.next_combo_action = Some(Action::AdvancedTouch);
         }
     }),
     GreatStrides(cp 32, effect |state| {
@@ -117,7 +117,7 @@ create_actions!(
     // Intensive Synthesis
     // TrainedEye
     AdvancedTouch(quality 1.5, durability 10, cp 46, effect |state| {
-        state.next_combo = None;
+        state.next_combo_action = None;
     }),
     PrudentSynthesis(progress 1.8, durability 10, cp 18,),
     TrainedFinesse(quality 1.0, cp 32,),
@@ -171,7 +171,7 @@ impl Action {
 
     pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
         // test for basic touch combo
-        if state.action.is_some() && state.action == state.next_combo {
+        if state.action.is_some() && state.action == state.next_combo_action {
             return 18;
         }
         base_cost
@@ -222,8 +222,8 @@ impl Action {
 
         state.observe = false;
 
-        if state.next_combo != Some(self) {
-            state.next_combo = None;
+        if state.next_combo_action != Some(self) {
+            state.next_combo_action = None;
         }
 
         state.buffs.decrement_timers();

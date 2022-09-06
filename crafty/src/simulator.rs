@@ -134,11 +134,15 @@ impl Simulator {
 
     /// Calculate the UCB1 score for a node
     fn eval(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
-        let visits = state.visits as f32;
-        let exploitation = state.score_sum / visits;
-        // picking an arbitrary constant here
-        let exploration = (2.0 * parent_state.visits.ln() / visits).sqrt();
+        // manually picked constants
+        let w: f32 = 0.1;
+        let c: f32 = 1.5;
 
+        let visits = state.visits as f32;
+        let average_score = state.score_sum / visits;
+
+        let exploitation = (1.0 - w) * average_score + w * state.max_score;
+        let exploration = (c * parent_state.visits.ln() / visits).sqrt();
 
         exploitation + exploration
     }
@@ -210,7 +214,7 @@ impl Simulator {
         }
     }
 
-    fn backup(&mut self, start_index: usize, target_index: usize, score: f32) {
+    fn backpropagate(&mut self, start_index: usize, target_index: usize, score: f32) {
         let mut current_index = start_index;
         loop {
             // Mutate current node stats
@@ -240,7 +244,7 @@ impl Simulator {
                 CraftResult::Finished(s) => s,
                 CraftResult::Failed => 0.0,
             };
-            self.backup(end_index, start_index, score);
+            self.backpropagate(end_index, start_index, score);
         }
         self
     }

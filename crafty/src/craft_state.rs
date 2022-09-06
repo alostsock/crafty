@@ -75,7 +75,7 @@ pub struct CraftState {
     pub cp_max: u32,
 
     pub observe: bool,
-    pub next_combo: Option<Action>,
+    pub next_combo_action: Option<Action>,
     pub buffs: Buffs,
 
     /// The action that led to this state
@@ -132,7 +132,7 @@ impl CraftState {
             cp,
             cp_max: cp,
             observe: false,
-            next_combo: None,
+            next_combo_action: None,
             buffs: Buffs::new(),
             action: None,
             score_sum: 0.0,
@@ -166,7 +166,7 @@ impl CraftState {
                 }
             }
 
-            // only allow certain moves after Observe
+            // only allow Focused moves after Observe
             if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
                 return false;
             }
@@ -176,9 +176,22 @@ impl CraftState {
                 return false;
             }
 
-            // don't allow quality moves under Veneration
-            if self.buffs.veneration > 0 && attrs.quality_efficiency.is_some() {
+            // don't allow pure quality moves under Veneration
+            if self.buffs.veneration > 0
+                && attrs.progress_efficiency.is_none()
+                && attrs.quality_efficiency.is_some()
+            {
                 return false;
+            }
+
+            if self.quality < self.quality_target / 3 {
+                // don't allow finishing the craft if there is significant progress remaining
+                if let Some(progress_eff) = attrs.progress_efficiency {
+                    let progress_increase = Action::calc_progress_increase(self, progress_eff);
+                    if self.progress + progress_increase >= self.progress_target {
+                        return false;
+                    }
+                }
             }
 
             // don't allow quality moves at max quality
@@ -190,43 +203,51 @@ impl CraftState {
                 MuscleMemory | Reflect => self.step == 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 1,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
-                PrudentSynthesis | PrudentTouch => {
+                PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
                 // don't allow Observe if observing; should also have enough CP to follow up
                 Observe => !self.observe && self.cp >= 5,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
-                // don't allow downgraded Groundwork
+                // don't allow Groundwork if
+                //  1) waste not isn't active, or
+                //  2) it's downgraded
                 Groundwork => {
+                    if self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0 {
+                        return false;
+                    }
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
                 // don't allow Master's Mend too early
                 MastersMend => self.durability_max - self.durability <= 10,
-                // don't allow reapplying buffs too early
-                WasteNot | WasteNotII => self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0,
                 Manipulation => self.buffs.manipulation == 0,
-                GreatStrides => self.buffs.great_strides == 0,
-                Veneration => self.buffs.veneration == 0,
-                Innovation => self.buffs.innovation == 0,
+                GreatStrides => self.buffs.veneration == 0 && self.buffs.great_strides == 0,
+                Veneration | Innovation => self.buffs.veneration == 0 && self.buffs.innovation == 0,
                 _ => true,
             }
         });
         self.available_moves = available_moves;
     }
 
-    /// This assumes the craft is complete, and scores it from 0.01 to slightly above 1.
-    /// The minimum score should be greater than zero so that craft completion
-    /// is scored higher than non-completion, even when quality is low.
+    // An evaluation of the craft from 0 to 1
     pub fn score(&self) -> f32 {
-        let quality_ratio = 1.0_f32.min(self.quality as f32 / self.quality_target as f32);
+        // bonuses should add up to 1.0
+        let quality_bonus: f32 = 0.995;
+        let fewer_steps_bonus: f32 = 0.005;
 
-        let completion_bonus = 0.01;
+        if self.progress >= self.progress_target {
+            let quality_score =
+                quality_bonus.min(quality_bonus * self.quality as f32 / self.quality_target as f32);
 
-        // the fewer the steps, the higher this bonus will be
-        let fewer_steps_bonus = 0.1 / self.step as f32;
-        quality_ratio + completion_bonus + fewer_steps_bonus
+            let fewer_steps_score =
+                fewer_steps_bonus * (1.0_f32 - self.step as f32 / self.step_max as f32);
+
+            quality_score + fewer_steps_score
+        } else {
+            0.0
+        }
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
