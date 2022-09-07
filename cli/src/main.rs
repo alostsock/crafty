@@ -25,15 +25,15 @@ struct Args {
     /// The player's cp stat
     #[clap(index = 4)]
     cp: u32,
-    /// Search mode (stepwise/oneshot)
+    /// Search mode (stepwise or oneshot)
     #[clap(short, long, default_value_t = SearchMode::Stepwise)]
     mode: SearchMode,
-    /// The number craft simulations to run per search
+    /// The number of craft simulations to run per search
     #[clap(short = 'i', long, default_value_t = 500_000_u32)]
     search_iterations: u32,
     /// The number of searches to run in parallel
     #[clap(short = 'p', long, default_value_t = 1_u16)]
-    search_pool: u16,
+    search_pool_size: u16,
     /// The maximum number of steps allowed
     #[clap(short, long, default_value_t = 30_u8)]
     steps: u8,
@@ -126,7 +126,7 @@ fn main() -> Result<()> {
             let instant = time::Instant::now();
 
             // Run multiple simulations in parallel, and take the one with the max score
-            let (actions, result_state) = (0..args.search_pool)
+            let (actions, result_state) = (0..args.search_pool_size)
                 .into_par_iter()
                 .map(|_| match args.mode {
                     SearchMode::Stepwise => Simulator::search_stepwise(
@@ -173,7 +173,7 @@ fn validate_args(args: &Args) -> Result<()> {
     is_between(args.control, 1, 5000, "control")?;
     is_between(args.cp, 1, 700, "cp")?;
     is_between(args.search_iterations, 100, 10_000_000, "iteration count")?;
-    is_between(u32::from(args.search_pool), 1, 10_000, "search pool")?;
+    is_between(u32::from(args.search_pool_size), 1, 10_000, "search pool")?;
     is_between(u32::from(args.steps), 5, 50, "max steps")?;
     Ok(())
 }

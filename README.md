@@ -8,7 +8,17 @@ The simulator implemented for this project was roughly rewritten from [the Teamc
 
 The solver uses a basic [Monte Carlo tree search](https://en.wikipedia.org/wiki/Monte_Carlo_tree_search) (MCTS) algorithm with some hand-coded crafting rotation logic to better guide the search. Usually this method is used for two-player games like chess or go -- this solver is a single-agent variant.
 
-## Debugging
+## Installing the command-line app
+
+To build and install from scratch (requires the [Rust toolchain](https://www.rust-lang.org/tools/install)):
+```sh
+git clone https://github.com/alostsock/crafty
+cd crafty
+cargo install --path cli
+crafty --help
+```
+
+## Benchmarks
 
 Running benchmarks:
 
