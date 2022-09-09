@@ -141,18 +141,19 @@ impl CraftState {
             available_moves: vec![],
         };
 
-        state.determine_possible_moves();
+        state.set_available_moves(true);
         state
     }
 
-    /// Prune as many moves as possible to reduce the search space; adding some
-    /// bias to improve move selection should be OK.
-    pub fn determine_possible_moves(&mut self) {
+    /// Examine the current craft state and populate `available_moves`.
+    /// Enabling `strict` will add more rules that aim to prune as many
+    /// suboptimal moves as possible.
+    pub fn set_available_moves(&mut self, strict: bool) -> &mut Self {
         if self.progress >= self.progress_target
             || self.step >= self.step_max
             || self.durability == 0
         {
-            return;
+            return self;
         }
 
         let mut available_moves = Action::ACTIONS.to_vec();
@@ -167,25 +168,26 @@ impl CraftState {
             }
 
             // only allow Focused moves after Observe
-            if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
+            if strict && self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
                 return false;
             }
 
             // don't allow quality moves under Muscle Memory
-            if self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
+            if strict && self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
                 return false;
             }
 
             // don't allow pure quality moves under Veneration
-            if self.buffs.veneration > 0
+            if strict
+                && self.buffs.veneration > 0
                 && attrs.progress_efficiency.is_none()
                 && attrs.quality_efficiency.is_some()
             {
                 return false;
             }
 
-            if self.quality < self.quality_target / 3 {
-                // don't allow finishing the craft if there is significant progress remaining
+            // don't allow finishing the craft if there is significant progress remaining
+            if strict && self.quality < self.quality_target / 3 {
                 if let Some(progress_eff) = attrs.progress_efficiency {
                     let progress_increase = Action::calc_progress_increase(self, progress_eff);
                     if self.progress + progress_increase >= self.progress_target {
@@ -203,32 +205,47 @@ impl CraftState {
                 MuscleMemory | Reflect => self.step == 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 1,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
-                PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII => {
+                // use of Waste Not should be efficient
+                PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII if strict => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
+                PrudentSynthesis | PrudentTouch => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
                 // don't allow Observe if observing; should also have enough CP to follow up
-                Observe => !self.observe && self.cp >= 5,
+                Observe if strict => !self.observe && self.cp >= 5,
+                Observe => !self.observe,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
                 // don't allow Groundwork if
                 //  1) waste not isn't active, or
                 //  2) it's downgraded
-                Groundwork => {
+                Groundwork if strict => {
                     if self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0 {
                         return false;
                     }
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
-                // don't allow Master's Mend too early
-                MastersMend => self.durability_max - self.durability <= 10,
-                Manipulation => self.buffs.manipulation == 0,
-                GreatStrides => self.buffs.veneration == 0 && self.buffs.great_strides == 0,
-                Veneration | Innovation => self.buffs.veneration == 0 && self.buffs.innovation == 0,
-                _ => true,
+                // don't allow buffs too early
+                MastersMend if strict => self.durability_max - self.durability <= 10,
+                Manipulation if strict => self.buffs.manipulation == 0,
+                GreatStrides if strict => {
+                    self.buffs.veneration == 0 && self.buffs.great_strides == 0
+                }
+                Veneration | Innovation if strict => {
+                    self.buffs.veneration == 0 && self.buffs.innovation == 0
+                }
+                // make sure we've exhaustively handled every action; don't use a wildcard here
+                AdvancedTouch | BasicSynthesis | BasicTouch | CarefulSynthesis
+                | DelicateSynthesis | GreatStrides | Groundwork | Innovation | Manipulation
+                | MastersMend | PreparatoryTouch | StandardTouch | Veneration | WasteNot
+                | WasteNotII => true,
             }
         });
         self.available_moves = available_moves;
+
+        self
     }
 
     // An evaluation of the craft from 0 to 1

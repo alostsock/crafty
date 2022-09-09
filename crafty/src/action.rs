@@ -311,7 +311,7 @@ impl Action {
             apply_effect(&mut state);
         }
 
-        state.determine_possible_moves();
+        state.set_available_moves(true);
 
         state
     }

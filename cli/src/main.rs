@@ -99,7 +99,14 @@ fn main() -> Result<()> {
             .interact()?;
 
         if manual_action {
-            let mut actions = state.available_moves.clone();
+            // The craft state by default will have a strictly pruned moveset
+            // to reduce the search space for the solver. To opt out of this,
+            // clone the current state and repopulate available moves.
+            let mut actions = state
+                .clone()
+                .set_available_moves(false)
+                .available_moves
+                .clone();
             actions.sort_by_key(|k| format!("{}", k));
             let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
