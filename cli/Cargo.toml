@@ -9,7 +9,7 @@ edition = "2021"
 crafty = { path = "../crafty" }
 anyhow = "1.0.52"
 clap = { version = "3.1", features = ["derive"] }
-dialoguer = "0.10.0"
+dialoguer = { version = "0.10.2", features = ["fuzzy-select"] }
 ctrlc = "3.2.1"
 rayon = "1.5.2"
 

@@ -21,14 +21,13 @@ macro_rules! optional {
 macro_rules! create_actions {
     (
         $(
-            $action_name:ident (
+            [$action_name:ident, $label:expr]
                 $(progress $progress:expr,)?
                 $(quality $quality:expr,)?
                 $(durability $durability:expr,)?
                 $(cp $cp:expr,)?
-                $(effect $effect:expr)?
-            )
-        ),+ $(,)?
+                $(effect $effect:expr,)?
+        )+ $(,)?
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Action {
@@ -54,73 +53,152 @@ macro_rules! create_actions {
                     )*
                 }
             }
+
+            pub fn label(&self) -> &'static str {
+                match *self {
+                    $(
+                        Action::$action_name => $label,
+                    )*
+                }
+            }
         }
     };
 }
 
 // https://na.finalfantasyxiv.com/crafting_gathering_guide/carpenter/
 create_actions!(
-    BasicSynthesis(progress 1.2, durability 10,),
-    BasicTouch(quality 1.0, durability 10, cp 18, effect |state| {
-        state.next_combo_action = Some(Action::StandardTouch);
-    }),
-    MastersMend(cp 88, effect |state| {
-        state.durability = cmp::min(state.durability + 30, state.durability_max);
-    }),
+    [BasicSynthesis, "Basic Synthesis"]
+        progress 1.2,
+        durability 10,
+    [BasicTouch, "Basic Touch"]
+        quality 1.0,
+        durability 10,
+        cp 18,
+        effect |state| {
+            state.next_combo_action = Some(Action::StandardTouch);
+        },
+    [MastersMend, "Master's Mend"]
+        durability 0,  // indicates that this move is not a buff
+        cp 88,
+        effect |state| {
+            state.durability = cmp::min(state.durability + 30, state.durability_max);
+        },
     // HastyTouch
     // RapidSynthesis
-    Observe(cp 7, effect |state| {
-        state.observe = true;
-    }),
+    [Observe, "Observe"]
+        durability 0,  // indicates that this move is not a buff
+        cp 7,
+        effect |state| {
+            state.observe = true;
+        },
     // TricksOfTheTrade
-    WasteNot(cp 56, effect |state| {
-        state.buffs.waste_not = 4;
-    }),
-    Veneration(cp 18, effect |state| {
-        state.buffs.veneration = 4;
-    }),
-    StandardTouch(quality 1.25, durability 10, cp 32, effect |state| {
-        if state.next_combo_action == Some(Action::StandardTouch) {
-            state.next_combo_action = Some(Action::AdvancedTouch);
-        }
-    }),
-    GreatStrides(cp 32, effect |state| {
-        state.buffs.great_strides = 3;
-    }),
-    Innovation(cp 18, effect |state| {
-        state.buffs.innovation = 4;
-    }),
+    [WasteNot, "Waste Not"]
+        cp 56,
+        effect |state| {
+            state.buffs.waste_not = 4;
+        },
+    [Veneration, "Veneration"]
+        cp 18,
+        effect |state| {
+            state.buffs.veneration = 4;
+        },
+    [StandardTouch, "Standard Touch"]
+        quality 1.25,
+        durability 10,
+        cp 32,
+        effect |state| {
+            if state.next_combo_action == Some(Action::StandardTouch) {
+                state.next_combo_action = Some(Action::AdvancedTouch);
+            }
+        },
+    [GreatStrides, "Great Strides"]
+        cp 32,
+        effect |state| {
+            state.buffs.great_strides = 3;
+        },
+    [Innovation, "Innovation"]
+        cp 18,
+        effect |state| {
+            state.buffs.innovation = 4;
+        },
     // FinalAppraisal
-    WasteNotII(cp 98, effect |state| {
-        state.buffs.waste_not_ii = 8;
-    }),
-    ByregotsBlessing(quality 0.0, durability 10, cp 24,),
+    [WasteNotII, "Waste Not II"]
+        cp 98,
+        effect |state| {
+            state.buffs.waste_not_ii = 8;
+        },
+    [ByregotsBlessing, "Byregot's Blessing"]
+        quality 0.0,  // a placeholder to indicate this action *does* affect quality
+        durability 10,
+        cp 24,
     // PreciseTouch
-    MuscleMemory(progress 3.0, durability 10, cp 6, effect |state| {
-        state.buffs.muscle_memory = 5;
-    }),
-    CarefulSynthesis(progress 1.8, durability 10, cp 7,),
-    Manipulation(cp 96, effect |state| {
-        state.buffs.manipulation = 8;
-    }),
-    PrudentTouch(quality 1.0, durability 5, cp 25,),
-    FocusedSynthesis(progress 2.0, durability 10, cp 5,),
-    FocusedTouch(quality 1.5, durability 10, cp 18,),
-    Reflect(quality 1.0, durability 10, cp 6, effect |state| {
-        state.buffs.inner_quiet += 1;
-    }),
-    PreparatoryTouch(quality 2.0, durability 20, cp 40, effect |state| {
-        state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
-    }),
-    Groundwork(progress 3.6, durability 20, cp 18,),
-    DelicateSynthesis(progress 1.0, quality 1.0, durability 10, cp 32,),
+    [MuscleMemory, "Muscle Memory"]
+        progress 3.0,
+        durability 10,
+        cp 6,
+        effect |state| {
+            state.buffs.muscle_memory = 5;
+        },
+    [CarefulSynthesis, "Careful Synthesis"]
+        progress 1.8,
+        durability 10,
+        cp 7,
+    [Manipulation, "Manipulation"]
+        cp 96,
+        effect |state| {
+            state.buffs.manipulation = 8;
+        },
+    [PrudentTouch, "Prudent Touch"]
+        quality 1.0,
+        durability 5,
+        cp 25,
+    [FocusedSynthesis, "Focused Synthesis"]
+        progress 2.0,
+        durability 10,
+        cp 5,
+    [FocusedTouch, "Focused Touch"]
+        quality 1.5,
+        durability 10,
+        cp 18,
+    [Reflect, "Reflect"]
+        quality 1.0,
+        durability 10,
+        cp 6,
+        effect |state| {
+            state.buffs.inner_quiet += 1;
+        },
+    [PreparatoryTouch, "Preparatory Touch"]
+        quality 2.0,
+        durability 20,
+        cp 40,
+        effect |state| {
+            state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
+        },
+    [Groundwork, "Groundwork"]
+        progress 3.6,
+        durability 20,
+        cp 18,
+    [DelicateSynthesis, "Delicate Synthesis"]
+        progress 1.0,
+        quality 1.0,
+        durability 10,
+        cp 32,
     // Intensive Synthesis
     // TrainedEye
-    AdvancedTouch(quality 1.5, durability 10, cp 46, effect |state| {
-        state.next_combo_action = None;
-    }),
-    PrudentSynthesis(progress 1.8, durability 10, cp 18,),
-    TrainedFinesse(quality 1.0, cp 32,),
+    [AdvancedTouch, "Advanced Touch"]
+        quality 1.5,
+        durability 10,
+        cp 46,
+        effect |state| {
+            state.next_combo_action = None;
+        },
+    [PrudentSynthesis, "Prudent Synthesis"]
+        progress 1.8,
+        durability 10,
+        cp 18,
+    [TrainedFinesse, "Trained Finesse"]
+        quality 1.0,
+        cp 32,
 );
 
 impl Action {
@@ -237,10 +315,25 @@ impl Action {
 
         state
     }
+
+    pub fn macro_text(&self) -> String {
+        let mut label = self.label().to_string();
+        if label.contains(' ') {
+            label = format!("\"{}\"", label);
+        }
+
+        let attrs = self.attributes();
+        let is_buff = attrs.progress_efficiency.is_none()
+            && attrs.quality_efficiency.is_none()
+            && attrs.durability_cost.is_none();
+        let wait_time = if is_buff { 2 } else { 3 };
+
+        format!("/ac {} <wait.{}>", label, wait_time)
+    }
 }
 
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{}", self.label())
     }
 }

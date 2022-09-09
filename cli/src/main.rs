@@ -4,7 +4,7 @@ use crafty::{data, Action, CraftResult, CraftState, Player, Recipe, SearchOption
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
-    Confirm, Input, Select,
+    Confirm, FuzzySelect, Input, Select,
 };
 use rayon::prelude::*;
 use std::time;
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
         if manual_action {
             let mut actions = state.available_moves.clone();
             actions.sort_by_key(|k| format!("{}", k));
-            let action = *prompt_selection("action?:", &actions)?;
+            let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
             let (next_index, result) = sim.execute_actions(current_index, vec![action]);
             match result {
@@ -147,10 +147,11 @@ fn main() -> Result<()> {
             print_info(format!("  completed in {elapsed} seconds."));
 
             print_state(&result_state);
+
             let action_count = actions.len();
-            print_info(format!("\n  {action_count} actions taken:"));
+            print_info(format!("\n  {action_count} actions taken:\n"));
             for action in actions {
-                println!("  {action:?}");
+                println!("{}", action.macro_text());
             }
 
             break;
@@ -178,18 +179,27 @@ fn validate_args(args: &Args) -> Result<()> {
     Ok(())
 }
 
-fn prompt_selection<'a, T>(prompt: &str, items: &'a [T]) -> Result<&'a T>
+fn prompt_selection<'a, T>(prompt: &str, items: &'a [T], is_fuzzy: bool) -> Result<&'a T>
 where
     T: std::fmt::Display,
 {
     if items.len() > 1 {
-        let selected = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt(prompt)
-            .items(items)
-            .default(0)
-            .max_length(5)
-            .interact_opt()?
-            .context("no item selected")?;
+        let selected = if is_fuzzy {
+            FuzzySelect::with_theme(&ColorfulTheme::default())
+                .with_prompt(prompt)
+                .items(items)
+                .default(0)
+                .interact_opt()?
+                .context("no item selected")?
+        } else {
+            Select::with_theme(&ColorfulTheme::default())
+                .with_prompt(prompt)
+                .items(items)
+                .default(0)
+                .max_length(5)
+                .interact_opt()?
+                .context("no item selected")?
+        };
         Ok(&items[selected])
     } else {
         Ok(&items[0])
@@ -204,7 +214,7 @@ fn prompt_recipe() -> Result<&'static Recipe> {
         .interact_text()?;
 
     let recipe_options = data::recipes(recipe_job_level);
-    let recipe = prompt_selection("recipe?", recipe_options)?;
+    let recipe = prompt_selection("recipe?", recipe_options, false)?;
     Ok(recipe)
 }
 
