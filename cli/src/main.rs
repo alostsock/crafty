@@ -16,30 +16,49 @@ struct Args {
     /// The player's job level
     #[clap(index = 1)]
     job_level: u32,
+
     /// The player's craftsmanship stat
     #[clap(index = 2)]
     craftsmanship: u32,
+
     /// The player's control stat
     #[clap(index = 3)]
     control: u32,
+
     /// The player's cp stat
     #[clap(index = 4)]
     cp: u32,
-    /// Search mode (stepwise or oneshot)
-    #[clap(short, long, default_value_t = SearchMode::Stepwise)]
-    mode: SearchMode,
-    /// The number of craft simulations to run per search
-    #[clap(short = 'i', long, default_value_t = 500_000_u32)]
-    search_iterations: u32,
-    /// The number of searches to run in parallel
-    #[clap(short = 'p', long, default_value_t = 1_u16)]
-    search_pool_size: u16,
+
     /// The maximum number of steps allowed
-    #[clap(short, long, default_value_t = 30_u8)]
+    #[clap(short = 's', long, default_value_t = 25_u8, display_order = 1000)]
     steps: u8,
-    /// A positive integer for seeding RNG
-    #[clap(long)]
+
+    /// The number of craft simulations to run per search
+    #[clap(short = 'i', long, default_value_t = 500_000_u32, display_order = 1101)]
+    search_iterations: u32,
+
+    /// The number of searches to run in parallel
+    #[clap(short = 'p', long, default_value_t = 1_u16, display_order = 1102)]
+    search_pool_size: u16,
+
+    /// Search mode (stepwise or oneshot)
+    #[clap(short = 'm', long, default_value_t = SearchMode::Stepwise, display_order = 1103)]
+    search_mode: SearchMode,
+
+    /// A positive integer to use for seeding RNG
+    #[clap(long, display_order = 1200)]
     seed: Option<u64>,
+
+    /// A constant used for search. The higher the weight, the more a node's potential max score
+    /// is valued over its average score. A weight of 1.0 means only max scores will be used; 0.0
+    /// means only average scores will be used.
+    #[clap(short = 'w', default_value_t = 0.1_f32, display_order = 2000)]
+    max_score_weighting_constant: f32,
+
+    /// A constant used for search. Higher values will cause nodes with more uncertain scores to be
+    /// explored.
+    #[clap(short = 'c', default_value_t = 0.5_f32, display_order = 2000)]
+    exploration_constant: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -85,6 +104,8 @@ fn main() -> Result<()> {
         max_steps: args.steps,
         rng_seed: args.seed,
         score_storage_threshold: Some(0.75),
+        max_score_weighting_constant: args.max_score_weighting_constant,
+        exploration_constant: args.exploration_constant,
     };
 
     let mut sim = Simulator::new(recipe, player, search_options);
@@ -135,7 +156,7 @@ fn main() -> Result<()> {
             // Run multiple simulations in parallel, and take the one with the max score
             let (actions, result_state) = (0..args.search_pool_size)
                 .into_par_iter()
-                .map(|_| match args.mode {
+                .map(|_| match args.search_mode {
                     SearchMode::Stepwise => Simulator::search_stepwise(
                         state.clone(),
                         action_history.clone(),
@@ -167,11 +188,16 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn is_between(value: u32, min: u32, max: u32, label: &str) -> Result<()> {
+fn is_between<T: std::cmp::PartialOrd + std::fmt::Display>(
+    value: T,
+    min: T,
+    max: T,
+    label: &str,
+) -> Result<()> {
     if value >= min && value <= max {
         Ok(())
     } else {
-        Err(anyhow!("{} should be between {} and {}", label, min, max))
+        Err(anyhow!("{} should range from {} and {}", label, min, max))
     }
 }
 
@@ -181,8 +207,20 @@ fn validate_args(args: &Args) -> Result<()> {
     is_between(args.control, 1, 5000, "control")?;
     is_between(args.cp, 1, 700, "cp")?;
     is_between(args.search_iterations, 100, 10_000_000, "iteration count")?;
-    is_between(u32::from(args.search_pool_size), 1, 10_000, "search pool")?;
-    is_between(u32::from(args.steps), 5, 50, "max steps")?;
+    is_between(args.search_pool_size, 1, 10_000, "search pool")?;
+    is_between(args.steps, 5, 50, "max steps")?;
+    is_between(
+        args.max_score_weighting_constant,
+        0.0,
+        1.0,
+        "max score weighting constant",
+    )?;
+    is_between(
+        args.exploration_constant,
+        0.0,
+        1000.0,
+        "exploration constant",
+    )?;
     Ok(())
 }
 

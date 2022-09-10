@@ -12,18 +12,39 @@ pub struct SearchOptions {
     /// A memory optimization option that specifies the minimum score a craft has to reach for
     /// action history to be stored. Only stores ~100% HQ states if None.
     pub score_storage_threshold: Option<f32>,
+    pub max_score_weighting_constant: f32,
+    pub exploration_constant: f32,
+}
+
+impl Default for SearchOptions {
+    fn default() -> Self {
+        SearchOptions {
+            iterations: 10_000,
+            max_steps: 15,
+            rng_seed: Some(0),
+            score_storage_threshold: None,
+            max_score_weighting_constant: 0.1,
+            exploration_constant: 1.5,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Simulator {
     pub tree: Arena<CraftState>,
-    pub iterations: u32,
+    iterations: u32,
     /// Amount of "dead ends" encountered. This means a node was selected, but there weren't any
     /// available moves.
     pub dead_ends_selected: u64,
     pub rng_seed: u64,
     rng: SmallRng,
     score_storage_threshold: f32,
+    /// The higher the weight, the more a node's potential max score is valued over its average
+    /// score. A weight of 1.0 means only max scores will be used; 0.0 means only average scores
+    /// will be used.
+    max_score_weighting_constant: f32,
+    /// Higher values prioritize exploring less promising nodes.
+    exploration_constant: f32,
 }
 
 impl Simulator {
@@ -58,6 +79,8 @@ impl Simulator {
             max_steps,
             rng_seed,
             score_storage_threshold,
+            max_score_weighting_constant,
+            exploration_constant,
         } = options;
 
         let initial_state = CraftState::new(
@@ -79,6 +102,8 @@ impl Simulator {
             rng_seed,
             rng: SmallRng::seed_from_u64(rng_seed),
             score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
+            max_score_weighting_constant,
+            exploration_constant,
         }
     }
 
@@ -87,6 +112,8 @@ impl Simulator {
             iterations,
             rng_seed,
             score_storage_threshold,
+            max_score_weighting_constant,
+            exploration_constant,
             ..
         } = options;
 
@@ -99,6 +126,8 @@ impl Simulator {
             rng_seed,
             rng: SmallRng::seed_from_u64(rng_seed),
             score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
+            max_score_weighting_constant,
+            exploration_constant,
         }
     }
 
@@ -134,9 +163,8 @@ impl Simulator {
 
     /// Calculate the UCB1 score for a node
     fn eval(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
-        // manually picked constants
-        let w: f32 = 0.1;
-        let c: f32 = 1.5;
+        let w = self.max_score_weighting_constant;
+        let c = self.exploration_constant;
 
         let visits = state.visits as f32;
         let average_score = state.score_sum / visits;
@@ -337,10 +365,9 @@ mod tests {
         };
         let player = Player::new(90, 3304, 3374, 575);
         let options = SearchOptions {
-            iterations: 10_000,
             max_steps: 15,
             rng_seed: Some(0),
-            score_storage_threshold: None,
+            ..Default::default()
         };
         Simulator::new(&recipe, &player, options)
     }
@@ -362,10 +389,9 @@ mod tests {
         };
         let player = Player::new(90, 3290, 3541, 649);
         let options = SearchOptions {
-            iterations: 10_000,
             max_steps: 25,
             rng_seed: Some(123),
-            score_storage_threshold: None,
+            ..Default::default()
         };
         Simulator::new(&recipe, &player, options)
     }

@@ -24,7 +24,7 @@ fn setup_sim(rng_seed: Option<u64>) -> Simulator {
         iterations: 50_000,
         max_steps: 15,
         rng_seed,
-        score_storage_threshold: None,
+        ..Default::default()
     };
     Simulator::new(&recipe, &player, options)
 }
