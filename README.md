@@ -40,8 +40,6 @@ cargo bench --profile release --bench benchmark -- --profile-time=10
 wasm-pack build web --release --target web --out-name crafty
 ```
 
-Note that `wasm-pack` will automatically run [`wasm-opt`](https://github.com/WebAssembly/binaryen/releases) if it is installed and added to `$PATH`. For this project we aim to optimize mainly for performance, and not code size.
-
 ## Relevant work
 
 [Schadd, Maarten PD, et al. "Single-player Monte-Carlo tree search for SameGame." Knowledge-Based Systems 34 (2012): 3-11.](http://www.schadd.com/Papers/2012SameGame.pdf)
