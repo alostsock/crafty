@@ -533,13 +533,5 @@ mod tests {
     fn search_should_not_panic() {
         let mut sim = setup_sim_2();
         sim.search(0).solution();
-        // TODO: integrate into this test
-        //
-        // print_info(format!(
-        //     "  max score: {}\n  est. memory used: {} bytes\n  nodes: {}",
-        //     result_state.max_score,
-        //     sim.tree.nodes.capacity() * std::mem::size_of_val(&sim.tree.nodes[0]),
-        //     sim.tree.nodes.len(),
-        // ));
     }
 }
