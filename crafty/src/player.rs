@@ -1,5 +1,8 @@
 use std::fmt;
 
+use serde::Deserialize;
+
+#[derive(Deserialize)]
 pub struct Player {
     pub job_level: u32,
     pub craftsmanship: u32,

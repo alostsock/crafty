@@ -9,6 +9,7 @@ edition = "2021"
 recipe = { path = "recipe" }
 phf = "0.10.0"
 rand = "0.8.4"
+serde = { version = "1.0.132", features = ["derive"] }
 
 [build-dependencies]
 recipe = { path = "recipe" }
