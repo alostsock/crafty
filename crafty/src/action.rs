@@ -34,7 +34,6 @@ macro_rules! create_actions {
             $($action_name,)*
         }
 
-
         impl Action {
             pub const ACTIONS: &'static [Action] = &[
                 $(Action::$action_name,)*
@@ -56,9 +55,20 @@ macro_rules! create_actions {
 
             pub fn label(&self) -> &'static str {
                 match *self {
-                    $(
-                        Action::$action_name => $label,
-                    )*
+                    $(Action::$action_name => $label,)*
+                }
+            }
+        }
+
+        pub struct ActionParseError;
+
+        impl std::str::FromStr for Action {
+            type Err = ActionParseError;
+
+            fn from_str(s: &str) -> Result<Action, ActionParseError> {
+                match s {
+                    $(stringify!($action_name) => Ok(Action::$action_name),)*
+                    _ => Err(ActionParseError)
                 }
             }
         }
