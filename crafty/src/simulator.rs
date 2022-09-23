@@ -13,19 +13,19 @@ pub struct SearchOptions {
     /// A memory optimization option that specifies the minimum score a craft has to reach for
     /// action history to be stored. Only stores ~100% HQ states if None.
     pub score_storage_threshold: Option<f32>,
-    pub max_score_weighting_constant: f32,
-    pub exploration_constant: f32,
+    pub max_score_weighting_constant: Option<f32>,
+    pub exploration_constant: Option<f32>,
 }
 
 impl Default for SearchOptions {
     fn default() -> Self {
-        SearchOptions {
+        Self {
             iterations: 10_000,
             max_steps: 15,
-            rng_seed: Some(0),
-            score_storage_threshold: None,
-            max_score_weighting_constant: 0.1,
-            exploration_constant: 1.5,
+            rng_seed: Some(SmallRng::from_entropy().gen()),
+            score_storage_threshold: Some(1.0),
+            max_score_weighting_constant: Some(0.1),
+            exploration_constant: Some(1.5),
         }
     }
 }
@@ -68,67 +68,44 @@ impl Simulator {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    fn random_seed() -> u64 {
-        SmallRng::from_entropy().gen()
-    }
-
     pub fn new(recipe: &Recipe, player: &Player, options: SearchOptions) -> Self {
         let (progress_factor, quality_factor) = Self::factors(player, recipe);
-
-        let SearchOptions {
-            iterations,
-            max_steps,
-            rng_seed,
-            score_storage_threshold,
-            max_score_weighting_constant,
-            exploration_constant,
-        } = options;
 
         let initial_state = CraftState::new(
             progress_factor,
             quality_factor,
             recipe.progress,
             recipe.quality,
-            max_steps,
+            options.max_steps,
             recipe.durability,
             player.cp,
         );
 
-        let rng_seed = rng_seed.unwrap_or_else(Self::random_seed);
-
-        Self {
-            tree: Arena::new(initial_state),
-            iterations,
-            dead_ends_selected: 0,
-            rng_seed,
-            rng: SmallRng::seed_from_u64(rng_seed),
-            score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
-            max_score_weighting_constant,
-            exploration_constant,
-        }
+        Self::from_state(&initial_state, options)
     }
 
     pub fn from_state(state: &CraftState, options: SearchOptions) -> Self {
-        let SearchOptions {
-            iterations,
-            rng_seed,
-            score_storage_threshold,
-            max_score_weighting_constant,
-            exploration_constant,
-            ..
-        } = options;
-
-        let rng_seed = rng_seed.unwrap_or_else(Self::random_seed);
+        let defaults = SearchOptions::default();
+        let rng_seed = options.rng_seed.or(defaults.rng_seed).unwrap();
 
         Self {
             tree: Arena::new(state.clone()),
-            iterations,
+            iterations: options.iterations,
             dead_ends_selected: 0,
             rng_seed,
             rng: SmallRng::seed_from_u64(rng_seed),
-            score_storage_threshold: score_storage_threshold.unwrap_or(1.0),
-            max_score_weighting_constant,
-            exploration_constant,
+            score_storage_threshold: options
+                .score_storage_threshold
+                .or(defaults.score_storage_threshold)
+                .unwrap(),
+            max_score_weighting_constant: options
+                .max_score_weighting_constant
+                .or(defaults.max_score_weighting_constant)
+                .unwrap(),
+            exploration_constant: options
+                .exploration_constant
+                .or(defaults.exploration_constant)
+                .unwrap(),
         }
     }
 

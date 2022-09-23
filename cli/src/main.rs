@@ -104,8 +104,8 @@ fn main() -> Result<()> {
         max_steps: args.steps,
         rng_seed: args.seed,
         score_storage_threshold: Some(0.75),
-        max_score_weighting_constant: args.max_score_weighting_constant,
-        exploration_constant: args.exploration_constant,
+        max_score_weighting_constant: Some(args.max_score_weighting_constant),
+        exploration_constant: Some(args.exploration_constant),
     };
 
     let mut sim = Simulator::new(recipe, player, search_options);
