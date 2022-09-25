@@ -1,5 +1,7 @@
 use crate::CraftState;
+use serde::Serialize;
 use std::{cmp, fmt};
+use ts_type::{wasm_bindgen, TsType};
 
 pub struct ActionAttributes {
     pub progress_efficiency: Option<f32>,
@@ -29,7 +31,7 @@ macro_rules! create_actions {
                 $(effect $effect:expr,)?
         )+ $(,)?
     ) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TsType)]
         pub enum Action {
             $($action_name,)*
         }

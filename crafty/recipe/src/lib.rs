@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use ts_type::{wasm_bindgen, TsType};
 
 // Must be separate from the `crafty` crate so it can be used in the build script
 
-#[derive(Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Deserialize, Serialize, TsType)]
 pub struct Recipe {
     pub recipe_level: u32,
     pub job_level: u32,

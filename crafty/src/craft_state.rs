@@ -1,5 +1,7 @@
 use crate::Action;
+use serde::Serialize;
 use std::fmt;
+use ts_type::{wasm_bindgen, TsType};
 
 #[derive(Debug)]
 pub enum CraftResult {
@@ -9,7 +11,7 @@ pub enum CraftResult {
     Failed,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, TsType)]
 pub struct Buffs {
     pub inner_quiet: u8,
     pub waste_not: u8,
@@ -56,7 +58,7 @@ impl Buffs {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, TsType)]
 pub struct CraftState {
     /// Multiply by synthesis action efficiency for increase in progress
     pub progress_factor: f32,

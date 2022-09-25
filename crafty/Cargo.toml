@@ -10,6 +10,7 @@ recipe = { path = "recipe" }
 phf = "0.10.0"
 rand = "0.8.4"
 serde = { version = "1.0.132", features = ["derive"] }
+ts_type = { path = "../ts_type" }
 
 [build-dependencies]
 recipe = { path = "recipe" }

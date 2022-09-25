@@ -215,6 +215,7 @@ dependencies = [
  "rand",
  "recipe",
  "serde",
+ "ts_type",
 ]
 
 [[package]]
@@ -876,6 +877,7 @@ name = "recipe"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "ts_type",
 ]
 
 [[package]]
@@ -1188,6 +1190,7 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "ts_type_derive",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1303,6 +1306,7 @@ dependencies = [
  "getrandom",
  "serde",
  "serde-wasm-bindgen",
+ "ts_type",
  "wasm-bindgen",
 ]
 

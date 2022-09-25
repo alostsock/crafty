@@ -1,8 +1,8 @@
-use std::fmt;
-
 use serde::Deserialize;
+use std::fmt;
+use ts_type::{wasm_bindgen, TsType};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TsType)]
 pub struct Player {
     pub job_level: u32,
     pub craftsmanship: u32,
