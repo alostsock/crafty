@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ts_type_derive = { path = "ts_type_derive" }
+wasm-bindgen = "0.2.83"
 
 [dev-dependencies]
 quote = "1.0.21"

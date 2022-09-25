@@ -1,4 +1,5 @@
 pub use ts_type_derive::TsType;
+pub use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Basically a simplified version of
 /// https://timryan.org/2019/01/22/exporting-serde-types-to-typescript.html
@@ -41,7 +42,7 @@ mod tests {
         assert_ast_eq!(
             Letter,
             quote! {
-                export type Letter = A | B | C;
+                export type Letter = "A" | "B" | "C";
             }
         );
     }

@@ -46,19 +46,28 @@ pub fn ts_type_derive(input: TokenStream) -> TokenStream {
 
     let ts_string = ts_tokens.to_string();
 
+    let ident_upper = ["TS_TYPE_", &ident.to_string().to_uppercase()].join("");
+    let const_ident = syn::Ident::new(&ident_upper, ident.span());
+
     let tokens = quote!(
         impl TsType for #ident {
             fn ts_type() -> &'static str {
                 #ts_string
             }
         }
+
+        #[wasm_bindgen(typescript_custom_section)]
+        const #const_ident: &'static str = #ts_string;
     );
 
     TokenStream::from(tokens)
 }
 
 fn process_enum(ident: &syn::Ident, variants: &[ast::Variant]) -> Option<QuoteTokens> {
-    let variant_idents: Vec<syn::Ident> = variants.iter().map(|v| v.ident.clone()).collect();
+    let variant_idents: Vec<String> = variants
+        .iter()
+        .map(|v| v.ident.clone().to_string())
+        .collect();
 
     if variants.iter().all(|v| v.fields.is_empty()) {
         Some(quote! {
