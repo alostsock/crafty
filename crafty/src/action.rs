@@ -60,6 +60,7 @@ macro_rules! create_actions {
             }
         }
 
+        #[derive(Debug)]
         pub struct ActionParseError;
 
         impl std::str::FromStr for Action {
