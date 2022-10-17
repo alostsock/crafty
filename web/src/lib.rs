@@ -6,6 +6,19 @@ use wasm_bindgen::{prelude::*, JsCast};
 #[allow(unused_imports)]
 use crafty::{Action, Buffs, CraftState, Player, Recipe, SearchOptions, Simulator};
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "Recipe[]")]
+    pub type Recipes;
+}
+
+#[wasm_bindgen(js_name = recipesByJobLevel)]
+pub fn recipes_by_job_level(player_job_level: u32) -> Recipes {
+    let recipes = crafty::data::recipes(player_job_level);
+
+    to_js_value(&recipes).unwrap().unchecked_into()
+}
+
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPE_SIMULATE_ACTIONS: &'static str = r#"
 export function simulateActions(
