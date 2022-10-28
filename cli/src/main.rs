@@ -139,7 +139,7 @@ fn main() -> Result<()> {
                     print_state(&sim.tree.get(next_index).state);
                     break;
                 }
-                Some(CraftResult::Failed) => {
+                _ => {
                     println!("{}", red("\nThe craft has failed."));
                     print_state(&sim.tree.get(next_index).state);
                     break;

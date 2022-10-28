@@ -249,7 +249,7 @@ impl Simulator {
 
             let score = match result {
                 CraftResult::Finished(s) => s,
-                CraftResult::Failed => 0.0,
+                _ => 0.0,
             };
             self.backpropagate(end_index, start_index, score);
         }

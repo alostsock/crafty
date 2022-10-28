@@ -8,7 +8,9 @@ pub enum CraftResult {
     /// Reached 100% progress. Include a score based on quality and steps
     Finished(f32),
     /// Failed either because of durability loss or the step limit was reached
-    Failed,
+    DurabilityFailure,
+    MaxStepsFailure,
+    NoMovesFailure,
 }
 
 #[derive(Default, Debug, Clone, Serialize, TsType)]
@@ -272,11 +274,12 @@ impl CraftState {
     pub fn check_result(&self) -> Option<CraftResult> {
         if self.progress >= self.progress_target {
             Some(CraftResult::Finished(self.score()))
-        } else if self.durability == 0
-            || self.step >= self.step_max
-            || self.available_moves.is_empty()
-        {
-            Some(CraftResult::Failed)
+        } else if self.durability == 0 {
+            Some(CraftResult::DurabilityFailure)
+        } else if self.step >= self.step_max {
+            Some(CraftResult::MaxStepsFailure)
+        } else if self.available_moves.is_empty() {
+            Some(CraftResult::NoMovesFailure)
         } else {
             None
         }
