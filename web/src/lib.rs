@@ -1,5 +1,8 @@
+use crafty::CraftResult;
+use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use std::str::FromStr;
+use ts_type::TsType;
 use wasm_bindgen::{prelude::*, JsCast};
 
 // some of these imports are only present to generate Typescript types
@@ -19,6 +22,20 @@ pub fn recipes_by_job_level(player_job_level: u32) -> Recipes {
     to_js_value(&recipes).unwrap().unchecked_into()
 }
 
+#[derive(Serialize, TsType)]
+enum CompletionReason {
+    Finished,
+    DurabilityFailure,
+    MaxStepsFailure,
+    NoMovesFailure,
+}
+
+#[derive(Serialize, TsType)]
+struct SimulatorResult {
+    craft_state: CraftState,
+    completion_reason: Option<CompletionReason>,
+}
+
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPE_SIMULATE_ACTIONS: &'static str = r#"
 export function simulateActions(
@@ -26,7 +43,7 @@ export function simulateActions(
     player: Player,
     options: SearchOptions,
     actions: Action[]
-): CraftState;
+): SimulatorResult;
 "#;
 
 #[wasm_bindgen(js_name = simulateActions, skip_typescript)]
@@ -46,8 +63,19 @@ pub fn simulate_actions(
         .collect();
 
     let mut sim = Simulator::new(&recipe, &player, options);
-    let (result_index, _) = sim.execute_actions(0, actions);
+    let (result_index, craft_result) = sim.execute_actions(0, actions);
     let result_node = sim.tree.get(result_index);
 
-    to_js_value(&result_node.state).unwrap().unchecked_into()
+    let sim_result = SimulatorResult {
+        craft_state: result_node.state.clone(),
+        completion_reason: match craft_result {
+            Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
+            Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
+            Some(CraftResult::MaxStepsFailure) => Some(CompletionReason::MaxStepsFailure),
+            Some(CraftResult::NoMovesFailure) => Some(CompletionReason::NoMovesFailure),
+            _ => None,
+        },
+    };
+
+    to_js_value(&sim_result).unwrap().unchecked_into()
 }
