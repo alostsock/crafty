@@ -11,7 +11,7 @@ pub struct Recipe {
     pub stars: u32,
     pub progress: u32,
     pub quality: u32,
-    pub durability: u32,
+    pub durability: i8,
     pub progress_div: u32,
     pub progress_mod: u32,
     pub quality_div: u32,

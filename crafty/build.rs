@@ -56,7 +56,9 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
                 stars: base.stars,
                 progress: apply_factor(base.progress, recipe.progress_factor),
                 quality: apply_factor(base.quality, recipe.quality_factor),
-                durability: apply_factor(base.durability, recipe.durability_factor),
+                durability: apply_factor(base.durability, recipe.durability_factor)
+                    .try_into()
+                    .unwrap(),
                 progress_div: base.progress_divider,
                 progress_mod: base.progress_modifier,
                 quality_div: base.quality_divider,

@@ -73,8 +73,8 @@ pub struct CraftState {
     pub progress_target: u32,
     pub quality: u32,
     pub quality_target: u32,
-    pub durability: u32,
-    pub durability_max: u32,
+    pub durability: i8,
+    pub durability_max: i8,
     pub cp: u32,
     pub cp_max: u32,
 
@@ -119,7 +119,7 @@ impl CraftState {
         progress_target: u32,
         quality_target: u32,
         step_max: u8,
-        durability: u32,
+        durability: i8,
         cp: u32,
     ) -> Self {
         let mut state = Self {
@@ -274,7 +274,7 @@ impl CraftState {
     pub fn check_result(&self) -> Option<CraftResult> {
         if self.progress >= self.progress_target {
             Some(CraftResult::Finished(self.score()))
-        } else if self.durability == 0 {
+        } else if self.durability <= 0 {
             Some(CraftResult::DurabilityFailure)
         } else if self.step >= self.step_max {
             Some(CraftResult::MaxStepsFailure)

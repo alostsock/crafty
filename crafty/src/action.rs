@@ -6,7 +6,7 @@ use ts_type::{wasm_bindgen, TsType};
 pub struct ActionAttributes {
     pub progress_efficiency: Option<f32>,
     pub quality_efficiency: Option<f32>,
-    pub durability_cost: Option<u32>,
+    pub durability_cost: Option<i8>,
     pub cp_cost: Option<u32>,
     effect: Option<fn(&mut CraftState)>,
 }
@@ -253,7 +253,7 @@ impl Action {
         (base * efficiency * modifier).floor() as u32
     }
 
-    pub fn calc_durability_cost(state: &CraftState, base_cost: u32) -> u32 {
+    pub fn calc_durability_cost(state: &CraftState, base_cost: i8) -> i8 {
         if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
             return base_cost / 2;
         }
@@ -298,9 +298,7 @@ impl Action {
         }
 
         if let Some(base_cost) = action.durability_cost {
-            state.durability = state
-                .durability
-                .saturating_sub(Action::calc_durability_cost(&state, base_cost));
+            state.durability -= Action::calc_durability_cost(&state, base_cost);
         }
 
         if state.buffs.manipulation > 0 && state.durability > 0 {

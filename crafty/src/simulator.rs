@@ -380,7 +380,7 @@ mod tests {
         actions: Vec<Action>,
         progress: u32,
         quality: u32,
-        durability: u32,
+        durability: i8,
         cp: u32,
     ) -> &CraftState {
         let (result_node, _) = sim.execute_actions(0, actions);
