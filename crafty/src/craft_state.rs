@@ -155,7 +155,7 @@ impl CraftState {
     pub fn set_available_moves(&mut self, strict: bool) -> &mut Self {
         if self.progress >= self.progress_target
             || self.step >= self.step_max
-            || self.durability == 0
+            || self.durability <= 0
         {
             return self;
         }
