@@ -27,7 +27,7 @@ enum CompletionReason {
     Finished,
     DurabilityFailure,
     MaxStepsFailure,
-    NoMovesFailure,
+    InvalidActionFailure,
 }
 
 #[derive(Serialize, TsType)]
@@ -73,7 +73,7 @@ pub fn simulate_actions(
             Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
             Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
             Some(CraftResult::MaxStepsFailure) => Some(CompletionReason::MaxStepsFailure),
-            Some(CraftResult::NoMovesFailure) => Some(CompletionReason::NoMovesFailure),
+            Some(CraftResult::InvalidActionFailure) => Some(CompletionReason::InvalidActionFailure),
             _ => None,
         },
     };

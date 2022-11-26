@@ -5,12 +5,14 @@ use ts_type::{wasm_bindgen, TsType};
 
 #[derive(Debug)]
 pub enum CraftResult {
-    /// Reached 100% progress. Include a score based on quality and steps
+    /// The craft reached 100% progress. Includes the score of the `CraftState`.
     Finished(f32),
-    /// Failed either because of durability loss or the step limit was reached
+    /// No durability remains.
     DurabilityFailure,
+    /// The step limit was reached.
     MaxStepsFailure,
-    NoMovesFailure,
+    /// No actions are available, or an invalid action was used.
+    InvalidActionFailure,
 }
 
 #[derive(Default, Debug, Clone, Serialize, TsType)]
@@ -252,7 +254,7 @@ impl CraftState {
         self
     }
 
-    // An evaluation of the craft from 0 to 1
+    /// An evaluation of the craft. Returns a value from 0 to 1.
     pub fn score(&self) -> f32 {
         // bonuses should add up to 1.0
         let quality_bonus: f32 = 0.995;
@@ -279,7 +281,7 @@ impl CraftState {
         } else if self.step >= self.step_max {
             Some(CraftResult::MaxStepsFailure)
         } else if self.available_moves.is_empty() {
-            Some(CraftResult::NoMovesFailure)
+            Some(CraftResult::InvalidActionFailure)
         } else {
             None
         }

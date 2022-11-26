@@ -123,19 +123,23 @@ impl Simulator {
                 return (current_index, Some(result));
             }
 
+            // the next action must be available to use, otherwise it's illegal 🚓
             if let Some(index) = current_state
                 .available_moves
                 .iter()
                 .position(|&m| m == action)
             {
                 current_state.available_moves.swap_remove(index);
+            } else {
+                return (current_index, Some(CraftResult::InvalidActionFailure));
             }
 
             let next_state = action.execute(current_state);
             let next_index = self.tree.insert(current_index, next_state);
             current_index = next_index;
         }
-        // check state after performing last action
+
+        // check state after performing the last action
         let current_state = &self.tree.get_mut(current_index).state;
         (current_index, current_state.check_result())
     }
