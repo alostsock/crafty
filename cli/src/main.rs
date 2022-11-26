@@ -101,47 +101,39 @@ fn main() -> Result<()> {
 
     let search_options = SearchOptions {
         iterations: args.search_iterations,
-        max_steps: args.steps,
         rng_seed: args.seed,
         score_storage_threshold: Some(0.75),
         max_score_weighting_constant: Some(args.max_score_weighting_constant),
         exploration_constant: Some(args.exploration_constant),
     };
 
-    let mut sim = Simulator::new(recipe, player, search_options);
+    let mut state = CraftState::new(player, recipe, args.steps);
     let mut action_history: Vec<Action> = vec![];
-    let mut current_index = 0;
     loop {
-        let state = &sim.tree.get_mut(current_index).state;
-        print_state(state);
+        print_state(&state);
 
         let manual_action = Confirm::new()
             .with_prompt("  continue manually?")
             .interact()?;
 
         if manual_action {
-            // The craft state by default will have a strictly pruned moveset
-            // to reduce the search space for the solver. To opt out of this,
-            // clone the current state and repopulate available moves.
-            let mut actions = state
-                .clone()
-                .set_available_moves(false)
-                .available_moves
-                .clone();
+            // Prompt for an action
+            let mut actions = state.available_moves.clone();
             actions.sort_by_key(|k| format!("{}", k));
             let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
-            let (next_index, result) = sim.execute_actions(current_index, vec![action]);
+
+            let (new_state, result) = Simulator::simulate(&state, vec![action]);
             match result {
-                None => current_index = next_index,
+                None => state = new_state,
                 Some(CraftResult::Finished(_)) => {
                     println!("{}", green("\nThe craft is complete."),);
-                    print_state(&sim.tree.get(next_index).state);
+                    print_state(&new_state);
                     break;
                 }
                 _ => {
                     println!("{}", red("\nThe craft has failed."));
-                    print_state(&sim.tree.get(next_index).state);
+                    print_state(&new_state);
                     break;
                 }
             }
@@ -157,16 +149,12 @@ fn main() -> Result<()> {
             let (actions, result_state) = (0..args.search_pool_size)
                 .into_par_iter()
                 .map(|_| match args.search_mode {
-                    SearchMode::Stepwise => Simulator::search_stepwise(
-                        state.clone(),
-                        action_history.clone(),
-                        search_options,
-                    ),
-                    SearchMode::Oneshot => Simulator::search_oneshot(
-                        state.clone(),
-                        action_history.clone(),
-                        search_options,
-                    ),
+                    SearchMode::Stepwise => {
+                        Simulator::search_stepwise(&state, action_history.clone(), search_options)
+                    }
+                    SearchMode::Oneshot => {
+                        Simulator::search_oneshot(&state, action_history.clone(), search_options)
+                    }
                 })
                 .max_by(|(_, a), (_, b)| a.max_score.partial_cmp(&b.max_score).unwrap())
                 .unwrap();

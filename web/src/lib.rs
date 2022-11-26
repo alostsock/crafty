@@ -1,4 +1,4 @@
-use crafty::CraftResult;
+use crafty::{CraftResult, CraftState, Player, Recipe, Simulator};
 use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use std::str::FromStr;
@@ -7,7 +7,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 
 // some of these imports are only present to generate Typescript types
 #[allow(unused_imports)]
-use crafty::{Action, Buffs, CraftState, Player, Recipe, SearchOptions, Simulator};
+use crafty::{Action, Buffs};
 
 #[wasm_bindgen]
 extern "C" {
@@ -41,35 +41,26 @@ const TS_TYPE_SIMULATE_ACTIONS: &'static str = r#"
 export function simulateActions(
     recipe: Recipe,
     player: Player,
-    options: SearchOptions,
     actions: Action[]
 ): SimulatorResult;
 "#;
 
 #[wasm_bindgen(js_name = simulateActions, skip_typescript)]
-pub fn simulate_actions(
-    recipe: JsValue,
-    player: JsValue,
-    options: JsValue,
-    actions: JsValue,
-) -> JsValue {
+pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> JsValue {
     let recipe: Recipe = from_js_value(recipe).unwrap();
     let player: Player = from_js_value(player).unwrap();
-    let options: SearchOptions = from_js_value(options).unwrap();
     let actions_str: Vec<String> = from_js_value(actions).unwrap();
     let actions: Vec<Action> = actions_str
         .iter()
         .map(|a| Action::from_str(a).unwrap())
         .collect();
 
-    let mut sim = Simulator::new(&recipe, &player, options);
-    let (result_index, craft_result) = sim.execute_actions(0, actions);
-    let mut craft_state = sim.tree.get(result_index).state.clone();
-    craft_state.set_available_moves(false);
+    let start_state = CraftState::new(&player, &recipe, 50);
+    let (end_state, result) = Simulator::simulate(&start_state, actions);
 
     let sim_result = SimulatorResult {
-        craft_state,
-        completion_reason: match craft_result {
+        craft_state: end_state,
+        completion_reason: match result {
             Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
             Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
             Some(CraftResult::MaxStepsFailure) => Some(CompletionReason::MaxStepsFailure),

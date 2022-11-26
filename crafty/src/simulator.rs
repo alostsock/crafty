@@ -1,4 +1,4 @@
-use crate::{data, tree::Arena, Action, CraftResult, CraftState, Player, Recipe};
+use crate::{tree::Arena, Action, CraftResult, CraftState};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::Deserialize;
 use ts_type::{wasm_bindgen, TsType};
@@ -7,8 +7,6 @@ use ts_type::{wasm_bindgen, TsType};
 pub struct SearchOptions {
     /// Number of simulations to run
     pub iterations: u32,
-    /// Maximum number of steps allowed for the craft
-    pub max_steps: u8,
     /// Numerical seed to use for RNG. Randomly picked if None
     pub rng_seed: Option<u64>,
     /// A memory optimization option that specifies the minimum score a craft has to reach for
@@ -22,7 +20,6 @@ impl Default for SearchOptions {
     fn default() -> Self {
         Self {
             iterations: 10_000,
-            max_steps: 15,
             rng_seed: Some(SmallRng::from_entropy().gen()),
             score_storage_threshold: Some(1.0),
             max_score_weighting_constant: Some(0.1),
@@ -33,7 +30,7 @@ impl Default for SearchOptions {
 
 #[derive(Debug)]
 pub struct Simulator {
-    pub tree: Arena<CraftState>,
+    tree: Arena<CraftState>,
     iterations: u32,
     /// Amount of "dead ends" encountered. This means a node was selected, but there weren't any
     /// available moves.
@@ -50,42 +47,7 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    fn factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
-        // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
-
-        let progress_div = recipe.progress_div as f32;
-        let mut progress_factor: f32 = (player.craftsmanship * 10) as f32 / progress_div + 2.0;
-
-        let quality_div = recipe.quality_div as f32;
-        let mut quality_factor: f32 = (player.control * 10) as f32 / quality_div + 35.0;
-
-        if let Some(&base_recipe_level) = data::base_recipe_level(player.job_level) {
-            if base_recipe_level <= recipe.recipe_level {
-                progress_factor *= recipe.progress_mod as f32 / 100.0;
-                quality_factor *= recipe.quality_mod as f32 / 100.0;
-            }
-        }
-
-        (progress_factor.floor(), quality_factor.floor())
-    }
-
-    pub fn new(recipe: &Recipe, player: &Player, options: SearchOptions) -> Self {
-        let (progress_factor, quality_factor) = Self::factors(player, recipe);
-
-        let initial_state = CraftState::new(
-            progress_factor,
-            quality_factor,
-            recipe.progress,
-            recipe.quality,
-            options.max_steps,
-            recipe.durability,
-            player.cp,
-        );
-
-        Self::from_state(&initial_state, options)
-    }
-
-    pub fn from_state(state: &CraftState, options: SearchOptions) -> Self {
+    fn from_state(state: &CraftState, options: SearchOptions) -> Self {
         let defaults = SearchOptions::default();
         let rng_seed = options.rng_seed.or(defaults.rng_seed).unwrap();
 
@@ -110,7 +72,7 @@ impl Simulator {
         }
     }
 
-    pub fn execute_actions(
+    fn execute_actions(
         &mut self,
         start_index: usize,
         actions: Vec<Action>,
@@ -134,8 +96,39 @@ impl Simulator {
                 return (current_index, Some(CraftResult::InvalidActionFailure));
             }
 
-            let next_state = action.execute(current_state);
+            let next_state = current_state.execute(&action);
             let next_index = self.tree.insert(current_index, next_state);
+            current_index = next_index;
+        }
+
+        // check state after performing the last action
+        let current_state = &mut self.tree.get_mut(current_index).state;
+        (current_index, current_state.check_result())
+    }
+
+    fn execute_actions_strict(
+        &mut self,
+        start_index: usize,
+        actions: Vec<Action>,
+    ) -> (usize, Option<CraftResult>) {
+        let mut current_index = start_index;
+        for action in actions {
+            let current_state = &mut self.tree.get_mut(current_index).state;
+
+            if let Some(result) = current_state.check_result() {
+                return (current_index, Some(result));
+            }
+
+            let action_index = current_state
+                .available_moves
+                .iter()
+                .position(|&m| m == action)
+                .unwrap();
+            current_state.available_moves.swap_remove(action_index);
+
+            let next_state = current_state.execute_strict(&action);
+            let next_index = self.tree.insert(current_index, next_state);
+
             current_index = next_index;
         }
 
@@ -196,7 +189,7 @@ impl Simulator {
         }
         let random_index = self.rng.gen_range(0..initial_state.available_moves.len());
         let random_action = initial_state.available_moves.swap_remove(random_index);
-        let expanded_state = random_action.execute(initial_state);
+        let expanded_state = initial_state.execute_strict(&random_action);
         let expanded_index = self.tree.insert(initial_index, expanded_state);
 
         // playout to a terminal state
@@ -209,7 +202,7 @@ impl Simulator {
             let random_index = self.rng.gen_range(0..current_state.available_moves.len());
             let random_action = current_state.available_moves.get(random_index).unwrap();
             action_history.push(*random_action);
-            current_state = random_action.execute(&current_state);
+            current_state = current_state.execute_strict(random_action);
         };
 
         // store the result if a max score was reached
@@ -218,7 +211,8 @@ impl Simulator {
                 if score >= self.score_storage_threshold
                     && score >= self.tree.nodes[0].state.max_score =>
             {
-                let (terminal_index, _) = self.execute_actions(expanded_index, action_history);
+                let (terminal_index, _) =
+                    self.execute_actions_strict(expanded_index, action_history);
                 (terminal_index, result)
             }
             _ => (expanded_index, result),
@@ -242,7 +236,7 @@ impl Simulator {
         }
     }
 
-    pub fn search(&mut self, start_index: usize) -> &mut Self {
+    fn search(&mut self, start_index: usize) -> &mut Self {
         for _ in 0..self.iterations {
             let selected_index = self.select(start_index);
             let (end_index, result) = self.expand_and_rollout(selected_index);
@@ -260,7 +254,7 @@ impl Simulator {
         self
     }
 
-    pub fn solution(&self) -> (Vec<Action>, CraftState) {
+    fn solution(&self) -> (Vec<Action>, CraftState) {
         let mut actions = vec![];
         let mut node = self.tree.get(0);
         while !node.children.is_empty() {
@@ -282,10 +276,16 @@ impl Simulator {
         (actions, node.state.clone())
     }
 
+    pub fn simulate(state: &CraftState, actions: Vec<Action>) -> (CraftState, Option<CraftResult>) {
+        let mut sim = Self::from_state(state, Default::default());
+        let (index, result) = sim.execute_actions(0, actions);
+        (sim.tree.get(index).state.clone(), result)
+    }
+
     /// Search for good actions step by step. Runs a new simulation from
     /// scratch for each action, and picks the best next action.
     pub fn search_stepwise(
-        state: CraftState,
+        state: &CraftState,
         action_history: Vec<Action>,
         search_options: SearchOptions,
     ) -> (Vec<Action>, CraftState) {
@@ -295,7 +295,7 @@ impl Simulator {
             ..search_options
         };
 
-        let mut state = state;
+        let mut state = state.clone_strict();
         let mut actions = action_history;
         while state.check_result().is_none() {
             let mut sim = Self::from_state(&state, search_options);
@@ -306,7 +306,7 @@ impl Simulator {
             }
 
             let chosen_action = solution_actions[0];
-            state = chosen_action.execute(&state);
+            state = state.execute_strict(&chosen_action);
             actions.push(chosen_action);
         }
 
@@ -316,10 +316,11 @@ impl Simulator {
     /// Constructs a single large tree and picks the action path that results in
     /// the highest score.
     pub fn search_oneshot(
-        state: CraftState,
+        state: &CraftState,
         action_history: Vec<Action>,
         search_options: SearchOptions,
     ) -> (Vec<Action>, CraftState) {
+        let state = state.clone_strict();
         let mut sim = Self::from_state(&state, search_options);
         let (actions, result_state) = sim.search(0).solution();
         ([action_history, actions].concat(), result_state)
@@ -328,10 +329,10 @@ impl Simulator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{Action, CraftState, Player, Recipe, SearchOptions, Simulator};
     use Action::*;
 
-    fn setup_sim_1() -> Simulator {
+    fn setup_sim_1() -> (CraftState, SearchOptions) {
         let recipe = Recipe {
             recipe_level: 560,
             job_level: 90,
@@ -347,15 +348,15 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
+        let state = CraftState::new(&player, &recipe, 15);
         let options = SearchOptions {
-            max_steps: 15,
             rng_seed: Some(0),
             ..Default::default()
         };
-        Simulator::new(&recipe, &player, options)
+        (state, options)
     }
 
-    fn setup_sim_2() -> Simulator {
+    fn setup_sim_2() -> (CraftState, SearchOptions) {
         let recipe = Recipe {
             recipe_level: 580,
             job_level: 90,
@@ -371,35 +372,34 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3290, 3541, 649);
+        let state = CraftState::new(&player, &recipe, 25);
         let options = SearchOptions {
-            max_steps: 25,
             rng_seed: Some(123),
             ..Default::default()
         };
-        Simulator::new(&recipe, &player, options)
+        (state, options)
     }
 
     fn assert_craft(
-        sim: &mut Simulator,
+        start_state: CraftState,
         actions: Vec<Action>,
         progress: u32,
         quality: u32,
         durability: i8,
         cp: u32,
-    ) -> &CraftState {
-        let (result_node, _) = sim.execute_actions(0, actions);
-        let result = &sim.tree.get(result_node).state;
-        assert_eq!(result.progress, progress);
-        assert_eq!(result.quality, quality);
-        assert_eq!(result.durability, durability);
-        assert_eq!(result.cp, cp);
-        result
+    ) {
+        let (end_state, _) = Simulator::simulate(&start_state, actions);
+        assert_eq!(end_state.progress, progress);
+        assert_eq!(end_state.quality, quality);
+        assert_eq!(end_state.durability, durability);
+        assert_eq!(end_state.cp, cp);
     }
 
     #[test]
     fn basic_actions() {
         let actions = vec![BasicTouch, BasicSynthesis, MastersMend];
-        assert_craft(&mut setup_sim_1(), actions, 276, 262, 80, 469);
+        let (start_state, _) = setup_sim_1();
+        assert_craft(start_state, actions, 276, 262, 80, 469);
     }
 
     #[test]
@@ -412,19 +412,22 @@ mod tests {
             StandardTouch,
             AdvancedTouch,
         ];
-        assert_craft(&mut setup_sim_1(), actions, 0, 2828, 30, 425);
+        let (start_state, _) = setup_sim_1();
+        assert_craft(start_state, actions, 0, 2828, 30, 425);
     }
 
     #[test]
     fn with_buffs_1() {
         let actions = vec![Reflect, Manipulation, PreparatoryTouch, WasteNotII];
-        assert_craft(&mut setup_sim_1(), actions, 0, 890, 60, 335);
+        let (start_state, _) = setup_sim_1();
+        assert_craft(start_state, actions, 0, 890, 60, 335);
     }
 
     #[test]
     fn with_buffs_2() {
         let actions = vec![MuscleMemory, GreatStrides, PrudentTouch, DelicateSynthesis];
-        assert_craft(&mut setup_sim_1(), actions, 1150, 812, 55, 480);
+        let (start_state, _) = setup_sim_1();
+        assert_craft(start_state, actions, 1150, 812, 55, 480);
     }
 
     #[test]
@@ -440,7 +443,8 @@ mod tests {
             GreatStrides,
             ByregotsBlessing,
         ];
-        assert_craft(&mut setup_sim_1(), actions, 1150, 1925, 80, 163);
+        let (start_state, _) = setup_sim_1();
+        assert_craft(start_state, actions, 1150, 1925, 80, 163);
     }
 
     #[test]
@@ -455,13 +459,15 @@ mod tests {
             PrudentTouch,
             PreparatoryTouch,
         ];
-        let mut sim = setup_sim_1();
-        let (index, _) = sim.execute_actions(0, actions);
-        let state = &sim.tree.get(index).state;
+        let (start_state, _) = setup_sim_1();
+        let (end_state, _) = Simulator::simulate(&start_state, actions);
         // 10 stacks of IQ
-        assert_eq!(10, state.buffs.inner_quiet);
+        assert_eq!(10, end_state.buffs.inner_quiet);
         // should proc Trained Finesse
-        assert!(state.available_moves.iter().any(|&a| a == TrainedFinesse));
+        assert!(end_state
+            .available_moves
+            .iter()
+            .any(|&a| a == TrainedFinesse));
     }
 
     #[test]
@@ -482,8 +488,8 @@ mod tests {
             Groundwork,
             Groundwork,
         ];
-        let mut sim = setup_sim_1();
-        sim.execute_actions(0, actions);
+        let (start_state, _) = setup_sim_1();
+        Simulator::simulate(&start_state, actions);
     }
 
     #[test]
@@ -508,13 +514,13 @@ mod tests {
             GreatStrides,
             ByregotsBlessing,
         ];
-        let mut sim = setup_sim_2();
-        sim.execute_actions(0, actions);
+        let (start_state, _) = setup_sim_2();
+        Simulator::simulate(&start_state, actions);
     }
 
     #[test]
     fn search_should_not_panic() {
-        let mut sim = setup_sim_2();
-        sim.search(0).solution();
+        let (start_state, options) = setup_sim_2();
+        Simulator::search_oneshot(&start_state, vec![], options);
     }
 }

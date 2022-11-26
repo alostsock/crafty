@@ -1,6 +1,6 @@
-use crate::Action;
+use crate::{action::ActionAttributes, data, Action, Player, Recipe};
 use serde::Serialize;
-use std::fmt;
+use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
 
 #[derive(Debug)]
@@ -115,28 +115,40 @@ impl fmt::Display for CraftState {
 }
 
 impl CraftState {
-    pub fn new(
-        progress_factor: f32,
-        quality_factor: f32,
-        progress_target: u32,
-        quality_target: u32,
-        step_max: u8,
-        durability: i8,
-        cp: u32,
-    ) -> Self {
-        let mut state = Self {
+    fn factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
+        // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
+
+        let progress_div = recipe.progress_div as f32;
+        let mut progress_factor: f32 = (player.craftsmanship * 10) as f32 / progress_div + 2.0;
+
+        let quality_div = recipe.quality_div as f32;
+        let mut quality_factor: f32 = (player.control * 10) as f32 / quality_div + 35.0;
+
+        if let Some(&base_recipe_level) = data::base_recipe_level(player.job_level) {
+            if base_recipe_level <= recipe.recipe_level {
+                progress_factor *= recipe.progress_mod as f32 / 100.0;
+                quality_factor *= recipe.quality_mod as f32 / 100.0;
+            }
+        }
+
+        (progress_factor.floor(), quality_factor.floor())
+    }
+
+    fn _new(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
+        let (progress_factor, quality_factor) = Self::factors(player, recipe);
+        Self {
             progress_factor,
             quality_factor,
             step: 1,
-            step_max,
+            step_max: max_steps,
             progress: 0,
-            progress_target,
+            progress_target: recipe.progress,
             quality: 0,
-            quality_target,
-            durability,
-            durability_max: durability,
-            cp,
-            cp_max: cp,
+            quality_target: recipe.quality,
+            durability: recipe.durability,
+            durability_max: recipe.durability,
+            cp: player.cp,
+            cp_max: player.cp,
             observe: false,
             next_combo_action: None,
             buffs: Buffs::new(),
@@ -145,8 +157,23 @@ impl CraftState {
             max_score: 0.0,
             visits: 0.0,
             available_moves: vec![],
-        };
+        }
+    }
 
+    pub fn new(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
+        let mut state = Self::_new(player, recipe, max_steps);
+        state.set_available_moves(false);
+        state
+    }
+
+    pub fn new_strict(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
+        let mut state = Self::_new(player, recipe, max_steps);
+        state.set_available_moves(true);
+        state
+    }
+
+    pub fn clone_strict(&self) -> Self {
+        let mut state = self.clone();
         state.set_available_moves(true);
         state
     }
@@ -154,7 +181,7 @@ impl CraftState {
     /// Examine the current craft state and populate `available_moves`.
     /// Enabling `strict` will add more rules that aim to prune as many
     /// suboptimal moves as possible.
-    pub fn set_available_moves(&mut self, strict: bool) -> &mut Self {
+    fn set_available_moves(&mut self, strict: bool) -> &mut Self {
         if self.progress >= self.progress_target
             || self.step >= self.step_max
             || self.durability <= 0
@@ -252,6 +279,85 @@ impl CraftState {
         self.available_moves = available_moves;
 
         self
+    }
+
+    fn _execute(&self, action: &Action) -> Self {
+        let mut state = Self {
+            step: self.step + 1,
+            buffs: self.buffs.clone(),
+            action: Some(*action),
+            score_sum: 0.0,
+            max_score: 0.0,
+            visits: 0.0,
+            available_moves: vec![],
+            ..*self
+        };
+
+        let ActionAttributes {
+            progress_efficiency,
+            quality_efficiency,
+            durability_cost,
+            cp_cost,
+            effect,
+        } = action.attributes();
+
+        if let Some(efficiency) = progress_efficiency {
+            state.progress += Action::calc_progress_increase(&state, efficiency);
+            state.buffs.muscle_memory = 0;
+        }
+
+        if let Some(efficiency) = quality_efficiency {
+            state.quality += Action::calc_quality_increase(&state, efficiency);
+            if action == &Action::ByregotsBlessing {
+                state.buffs.inner_quiet = 0;
+            } else {
+                state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
+            }
+            state.buffs.great_strides = 0;
+        }
+
+        if let Some(base_cost) = durability_cost {
+            state.durability -= Action::calc_durability_cost(&state, base_cost);
+        }
+
+        if state.buffs.manipulation > 0 && state.durability > 0 {
+            state.durability = cmp::min(state.durability + 5, state.durability_max);
+        }
+
+        if let Some(base_cost) = cp_cost {
+            state.cp -= Action::calc_cp_cost(&state, base_cost);
+        }
+
+        state.observe = false;
+
+        if state.next_combo_action != Some(*action) {
+            state.next_combo_action = None;
+        }
+
+        state.buffs.decrement_timers();
+
+        // Always apply effects last
+        if let Some(apply_effect) = effect {
+            apply_effect(&mut state);
+        }
+
+        state
+    }
+
+    /// Executes the action against a CraftState, and returns a CraftState with
+    /// all available moves
+    pub fn execute(&self, action: &Action) -> CraftState {
+        let mut state = self._execute(action);
+        state.set_available_moves(false);
+        state
+    }
+
+    /// Executes the action against a CraftState, and returns a CraftState with
+    /// a strict, pruned moveset
+    pub fn execute_strict(&self, action: &Action) -> CraftState {
+        let mut state = self._execute(action);
+        state.set_available_moves(true);
+        state
     }
 
     /// An evaluation of the craft. Returns a value from 0 to 1.

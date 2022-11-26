@@ -8,7 +8,7 @@ pub struct ActionAttributes {
     pub quality_efficiency: Option<f32>,
     pub durability_cost: Option<i8>,
     pub cp_cost: Option<u32>,
-    effect: Option<fn(&mut CraftState)>,
+    pub effect: Option<fn(&mut CraftState)>,
 }
 
 macro_rules! optional {
@@ -266,65 +266,6 @@ impl Action {
             return 18;
         }
         base_cost
-    }
-
-    pub fn execute(self, prev_state: &CraftState) -> CraftState {
-        let mut state = CraftState {
-            step: prev_state.step + 1,
-            buffs: prev_state.buffs.clone(),
-            action: Some(self),
-            score_sum: 0.0,
-            max_score: 0.0,
-            visits: 0.0,
-            available_moves: vec![],
-            ..*prev_state
-        };
-
-        let action = self.attributes();
-
-        if let Some(efficiency) = action.progress_efficiency {
-            state.progress += Action::calc_progress_increase(&state, efficiency);
-            state.buffs.muscle_memory = 0;
-        }
-
-        if let Some(efficiency) = action.quality_efficiency {
-            state.quality += Action::calc_quality_increase(&state, efficiency);
-            if self == Action::ByregotsBlessing {
-                state.buffs.inner_quiet = 0;
-            } else {
-                state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
-            }
-            state.buffs.great_strides = 0;
-        }
-
-        if let Some(base_cost) = action.durability_cost {
-            state.durability -= Action::calc_durability_cost(&state, base_cost);
-        }
-
-        if state.buffs.manipulation > 0 && state.durability > 0 {
-            state.durability = cmp::min(state.durability + 5, state.durability_max);
-        }
-
-        if let Some(base_cost) = action.cp_cost {
-            state.cp -= Action::calc_cp_cost(&state, base_cost);
-        }
-
-        state.observe = false;
-
-        if state.next_combo_action != Some(self) {
-            state.next_combo_action = None;
-        }
-
-        state.buffs.decrement_timers();
-
-        // Always apply effects last
-        if let Some(apply_effect) = action.effect {
-            apply_effect(&mut state);
-        }
-
-        state.set_available_moves(true);
-
-        state
     }
 
     pub fn macro_text(&self) -> String {
