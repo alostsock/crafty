@@ -223,7 +223,7 @@ impl Simulator {
         let mut current_index = start_index;
         loop {
             // Mutate current node stats
-            let current_node = &mut self.tree.get_mut(current_index);
+            let current_node = self.tree.get_mut(current_index);
             current_node.state.visits += 1.0;
             current_node.state.score_sum += score;
             current_node.state.max_score = current_node.state.max_score.max(score);
@@ -277,7 +277,7 @@ impl Simulator {
     }
 
     pub fn simulate(state: &CraftState, actions: Vec<Action>) -> (CraftState, Option<CraftResult>) {
-        let mut sim = Self::from_state(state, Default::default());
+        let mut sim = Self::from_state(state, SearchOptions::default());
         let (index, result) = sim.execute_actions(0, actions);
         (sim.tree.get(index).state.clone(), result)
     }
@@ -381,14 +381,14 @@ mod tests {
     }
 
     fn assert_craft(
-        start_state: CraftState,
+        start_state: &CraftState,
         actions: Vec<Action>,
         progress: u32,
         quality: u32,
         durability: i8,
         cp: u32,
     ) {
-        let (end_state, _) = Simulator::simulate(&start_state, actions);
+        let (end_state, _) = Simulator::simulate(start_state, actions);
         assert_eq!(end_state.progress, progress);
         assert_eq!(end_state.quality, quality);
         assert_eq!(end_state.durability, durability);
@@ -399,7 +399,7 @@ mod tests {
     fn basic_actions() {
         let actions = vec![BasicTouch, BasicSynthesis, MastersMend];
         let (start_state, _) = setup_sim_1();
-        assert_craft(start_state, actions, 276, 262, 80, 469);
+        assert_craft(&start_state, actions, 276, 262, 80, 469);
     }
 
     #[test]
@@ -413,21 +413,21 @@ mod tests {
             AdvancedTouch,
         ];
         let (start_state, _) = setup_sim_1();
-        assert_craft(start_state, actions, 0, 2828, 30, 425);
+        assert_craft(&start_state, actions, 0, 2828, 30, 425);
     }
 
     #[test]
     fn with_buffs_1() {
         let actions = vec![Reflect, Manipulation, PreparatoryTouch, WasteNotII];
         let (start_state, _) = setup_sim_1();
-        assert_craft(start_state, actions, 0, 890, 60, 335);
+        assert_craft(&start_state, actions, 0, 890, 60, 335);
     }
 
     #[test]
     fn with_buffs_2() {
         let actions = vec![MuscleMemory, GreatStrides, PrudentTouch, DelicateSynthesis];
         let (start_state, _) = setup_sim_1();
-        assert_craft(start_state, actions, 1150, 812, 55, 480);
+        assert_craft(&start_state, actions, 1150, 812, 55, 480);
     }
 
     #[test]
@@ -444,7 +444,7 @@ mod tests {
             ByregotsBlessing,
         ];
         let (start_state, _) = setup_sim_1();
-        assert_craft(start_state, actions, 1150, 1925, 80, 163);
+        assert_craft(&start_state, actions, 1150, 1925, 80, 163);
     }
 
     #[test]

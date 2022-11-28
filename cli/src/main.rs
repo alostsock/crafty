@@ -1,3 +1,6 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
+
 use anyhow::{anyhow, Context, Error, Result};
 use clap::Parser;
 use crafty::{data, Action, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator};
@@ -87,8 +90,7 @@ impl std::str::FromStr for SearchMode {
 
 fn main() -> Result<()> {
     ctrlc::set_handler(|| {
-        let term = dialoguer::console::Term::stdout();
-        let _ = term.show_cursor();
+        dialoguer::console::Term::stdout().show_cursor().unwrap();
     })?;
 
     let args = Args::parse();
@@ -138,7 +140,7 @@ fn main() -> Result<()> {
                 }
             }
         } else {
-            print_info(format!(
+            print_info(&format!(
                 "\n  attempting to find the best solution under {} steps...",
                 args.steps
             ));
@@ -160,12 +162,12 @@ fn main() -> Result<()> {
                 .unwrap();
 
             let elapsed = instant.elapsed().as_secs_f64();
-            print_info(format!("  completed in {elapsed} seconds."));
+            print_info(&format!("  completed in {elapsed} seconds."));
 
             print_state(&result_state);
 
             let action_count = actions.len();
-            print_info(format!("\n  {action_count} actions taken:\n"));
+            print_info(&format!("\n  {action_count} actions taken:\n"));
             for action in actions {
                 println!("{}", action.macro_text());
             }
@@ -176,6 +178,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn is_between<T: std::cmp::PartialOrd + std::fmt::Display>(
     value: T,
     min: T,
@@ -259,8 +262,8 @@ fn print_state(state: &CraftState) {
     );
 }
 
-fn print_info(info: String) {
-    println!("{}", cyan(info.as_str()));
+fn print_info(info: &str) {
+    println!("{}", cyan(info));
 }
 
 fn cyan(s: &str) -> StyledObject<&str> {

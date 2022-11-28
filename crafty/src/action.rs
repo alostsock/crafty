@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
 
-pub struct ActionAttributes {
+pub struct Attributes {
     pub progress_efficiency: Option<f32>,
     pub quality_efficiency: Option<f32>,
     pub durability_cost: Option<i8>,
@@ -41,10 +41,10 @@ macro_rules! create_actions {
                 $(Action::$action_name,)*
             ];
 
-            pub fn attributes(&self) -> ActionAttributes {
+            pub fn attributes(&self) -> Attributes {
                 match *self {
                     $(
-                        Action::$action_name => ActionAttributes {
+                        Action::$action_name => Attributes {
                             progress_efficiency: optional!($( $progress )?),
                             quality_efficiency: optional!($( $quality )?),
                             durability_cost: optional!($( $durability )?),
@@ -215,6 +215,8 @@ create_actions!(
 );
 
 impl Action {
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
     pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
         let base = state.progress_factor;
 
@@ -229,16 +231,18 @@ impl Action {
         (base * efficiency * multiplier).floor() as u32
     }
 
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
     pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
         let base = state.quality_factor;
 
         let mut efficiency = efficiency;
 
         if state.action == Some(Action::ByregotsBlessing) {
-            efficiency = 1.0 + state.buffs.inner_quiet as f32 * 0.2;
+            efficiency = 1.0 + f32::from(state.buffs.inner_quiet) * 0.2;
         }
 
-        let mut modifier = 1.0 + state.buffs.inner_quiet as f32 / 10.0;
+        let mut modifier = 1.0 + f32::from(state.buffs.inner_quiet) / 10.0;
 
         let mut multiplier = 1.0;
         if state.buffs.innovation > 0 {

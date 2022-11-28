@@ -1,4 +1,4 @@
-use crate::{action::ActionAttributes, data, Action, Player, Recipe};
+use crate::{action::Attributes, data, Action, Player, Recipe};
 use serde::Serialize;
 use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
@@ -30,7 +30,7 @@ pub struct Buffs {
 
 impl Buffs {
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Decrements all buff timers by 1 step
@@ -115,6 +115,7 @@ impl fmt::Display for CraftState {
 }
 
 impl CraftState {
+    #[allow(clippy::cast_precision_loss)]
     fn factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
 
@@ -281,6 +282,8 @@ impl CraftState {
         self
     }
 
+    // interesting lint, but passing by value apparently results in a 2-3% performance regression?
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     fn _execute(&self, action: &Action) -> Self {
         let mut state = Self {
             step: self.step + 1,
@@ -293,7 +296,7 @@ impl CraftState {
             ..*self
         };
 
-        let ActionAttributes {
+        let Attributes {
             progress_efficiency,
             quality_efficiency,
             durability_cost,
@@ -344,7 +347,7 @@ impl CraftState {
         state
     }
 
-    /// Executes the action against a CraftState, and returns a CraftState with
+    /// Executes the action against a `CraftState`, and returns a `CraftState` with
     /// all available moves
     pub fn execute(&self, action: &Action) -> CraftState {
         let mut state = self._execute(action);
@@ -352,7 +355,7 @@ impl CraftState {
         state
     }
 
-    /// Executes the action against a CraftState, and returns a CraftState with
+    /// Executes the action against a `CraftState`, and returns a `CraftState` with
     /// a strict, pruned moveset
     pub fn execute_strict(&self, action: &Action) -> CraftState {
         let mut state = self._execute(action);
@@ -361,6 +364,7 @@ impl CraftState {
     }
 
     /// An evaluation of the craft. Returns a value from 0 to 1.
+    #[allow(clippy::cast_precision_loss)]
     pub fn score(&self) -> f32 {
         // bonuses should add up to 1.0
         let quality_bonus: f32 = 0.995;
@@ -371,7 +375,7 @@ impl CraftState {
                 quality_bonus.min(quality_bonus * self.quality as f32 / self.quality_target as f32);
 
             let fewer_steps_score =
-                fewer_steps_bonus * (1.0_f32 - self.step as f32 / self.step_max as f32);
+                fewer_steps_bonus * (1.0_f32 - f32::from(self.step) / f32::from(self.step_max));
 
             quality_score + fewer_steps_score
         } else {
