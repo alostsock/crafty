@@ -1,13 +1,13 @@
-use crafty::{CraftResult, CraftState, Player, Recipe, Simulator};
+use crafty::{Action, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator};
 use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use std::str::FromStr;
 use ts_type::TsType;
 use wasm_bindgen::{prelude::*, JsCast};
 
-// some of these imports are only present to generate Typescript types
+// only present to generate Typescript types
 #[allow(unused_imports)]
-use crafty::{Action, Buffs};
+use crafty::Buffs;
 
 #[wasm_bindgen]
 extern "C" {
@@ -70,4 +70,36 @@ pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> J
     };
 
     to_js_value(&sim_result).unwrap().unchecked_into()
+}
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS_TYPE_SEARCH_STEPWISE: &'static str = r#"
+export function searchStepwise(
+    recipe: Recipe,
+    player: Player,
+    action_history: Action[],
+    options: SearchOptions
+): Action[];
+"#;
+
+#[wasm_bindgen(js_name = searchStepwise, skip_typescript)]
+pub fn search_stepwise(
+    recipe: JsValue,
+    player: JsValue,
+    action_history: JsValue,
+    options: JsValue,
+) -> JsValue {
+    let recipe: Recipe = from_js_value(recipe).unwrap();
+    let player: Player = from_js_value(player).unwrap();
+    let action_history_str: Vec<String> = from_js_value(action_history).unwrap();
+    let action_history: Vec<Action> = action_history_str
+        .iter()
+        .map(|a| Action::from_str(a).unwrap())
+        .collect();
+    let options: SearchOptions = from_js_value(options).unwrap();
+
+    let start_state = CraftState::new(&player, &recipe, 50);
+    let (actions, _) = Simulator::search_stepwise(&start_state, action_history, options);
+
+    to_js_value(&actions).unwrap().unchecked_into()
 }
