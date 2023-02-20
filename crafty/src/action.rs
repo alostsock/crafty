@@ -109,6 +109,7 @@ create_actions!(
         cp 56,
         effect |state| {
             state.buffs.waste_not = 4;
+            state.buffs.waste_not_ii = 0;
         },
     [Veneration, "Veneration"]
         cp 18,
@@ -138,6 +139,7 @@ create_actions!(
     [WasteNotII, "Waste Not II"]
         cp 98,
         effect |state| {
+            state.buffs.waste_not = 0;
             state.buffs.waste_not_ii = 8;
         },
     [ByregotsBlessing, "Byregot's Blessing"]
