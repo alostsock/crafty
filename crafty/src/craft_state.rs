@@ -45,21 +45,6 @@ impl Buffs {
         self.makers_mark = self.makers_mark.saturating_sub(1);
         self.muscle_memory = self.muscle_memory.saturating_sub(1);
     }
-
-    /// An array indicating which buffs are active
-    pub fn as_mask(&self) -> [bool; 9] {
-        [
-            self.inner_quiet > 0,
-            self.waste_not > 0,
-            self.waste_not_ii > 0,
-            self.manipulation > 0,
-            self.great_strides > 0,
-            self.innovation > 0,
-            self.veneration > 0,
-            self.makers_mark > 0,
-            self.muscle_memory > 0,
-        ]
-    }
 }
 
 #[derive(Debug, Clone, Serialize, TsType)]
