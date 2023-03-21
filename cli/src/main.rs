@@ -60,7 +60,7 @@ struct Args {
 
     /// A constant used for search. Higher values will cause nodes with more uncertain scores to be
     /// explored.
-    #[clap(short = 'c', default_value_t = 0.5_f32, display_order = 2000)]
+    #[clap(short = 'c', default_value_t = 1.5_f32, display_order = 2000)]
     exploration_constant: f32,
 }
 
