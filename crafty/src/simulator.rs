@@ -300,6 +300,7 @@ impl Simulator {
         state: &CraftState,
         action_history: Vec<Action>,
         search_options: SearchOptions,
+        action_callback: Option<&dyn Fn(Action)>,
     ) -> (Vec<Action>, CraftState) {
         // only store perfect scores to save on memory
         let search_options = SearchOptions {
@@ -320,6 +321,10 @@ impl Simulator {
             let chosen_action = solution_actions[0];
             state = state.execute_strict(&chosen_action);
             actions.push(chosen_action);
+
+            if let Some(action_callback) = action_callback {
+                action_callback(chosen_action);
+            }
         }
 
         (actions, state)

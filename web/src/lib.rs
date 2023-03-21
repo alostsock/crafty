@@ -78,7 +78,8 @@ export function searchStepwise(
     recipe: Recipe,
     player: Player,
     action_history: Action[],
-    options: SearchOptions
+    options: SearchOptions,
+    action_callback: (action: Action) => void,
 ): Action[];
 "#;
 
@@ -88,6 +89,7 @@ pub fn search_stepwise(
     player: JsValue,
     action_history: JsValue,
     options: JsValue,
+    action_callback: js_sys::Function,
 ) -> JsValue {
     let recipe: Recipe = from_js_value(recipe).unwrap();
     let player: Player = from_js_value(player).unwrap();
@@ -99,7 +101,15 @@ pub fn search_stepwise(
     let options: SearchOptions = from_js_value(options).unwrap();
 
     let start_state = CraftState::new(&player, &recipe, 50);
-    let (actions, _) = Simulator::search_stepwise(&start_state, action_history, options);
+
+    let callback = |action: Action| {
+        let null = JsValue::null();
+        let action_str = JsValue::from(action.to_string());
+        action_callback.call1(&null, &action_str).unwrap();
+    };
+
+    let (actions, _) =
+        Simulator::search_stepwise(&start_state, action_history, options, Some(&callback));
 
     to_js_value(&actions).unwrap().unchecked_into()
 }

@@ -151,9 +151,12 @@ fn main() -> Result<()> {
             let (actions, result_state) = (0..args.search_pool_size)
                 .into_par_iter()
                 .map(|_| match args.search_mode {
-                    SearchMode::Stepwise => {
-                        Simulator::search_stepwise(&state, action_history.clone(), search_options)
-                    }
+                    SearchMode::Stepwise => Simulator::search_stepwise(
+                        &state,
+                        action_history.clone(),
+                        search_options,
+                        None,
+                    ),
                     SearchMode::Oneshot => {
                         Simulator::search_oneshot(&state, action_history.clone(), search_options)
                     }
