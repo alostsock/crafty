@@ -277,7 +277,7 @@ impl Action {
     pub fn macro_text(&self) -> String {
         let mut label = self.label().to_string();
         if label.contains(' ') {
-            label = format!("\"{}\"", label);
+            label = format!("\"{label}\"");
         }
 
         let attrs = self.attributes();
@@ -286,7 +286,7 @@ impl Action {
             && attrs.durability_cost.is_none();
         let wait_time = if is_buff { 2 } else { 3 };
 
-        format!("/ac {} <wait.{}>", label, wait_time)
+        format!("/ac {label} <wait.{wait_time}>")
     }
 }
 

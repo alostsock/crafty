@@ -9,8 +9,8 @@ pub struct SearchOptions {
     pub iterations: u32,
     /// Numerical seed to use for RNG. Randomly picked if None
     pub rng_seed: Option<u64>,
-    /// A memory optimization option that specifies the minimum score a craft has to reach for
-    /// action history to be stored. Only stores ~100% HQ states if None.
+    /// A memory optimization option that specifies the minimum score a craft has
+    /// to reach for action history to be stored. Only stores ~100% HQ states if None.
     pub score_storage_threshold: Option<f32>,
     pub max_score_weighting_constant: Option<f32>,
     pub exploration_constant: Option<f32>,
@@ -32,15 +32,15 @@ impl Default for SearchOptions {
 pub struct Simulator {
     tree: Arena<CraftState>,
     iterations: u32,
-    /// Amount of "dead ends" encountered. This means a node was selected, but there weren't any
-    /// available moves.
+    /// Amount of "dead ends" encountered. This means a node was selected, but
+    /// there weren't any available moves.
     pub dead_ends_selected: u64,
     pub rng_seed: u64,
     rng: SmallRng,
     score_storage_threshold: f32,
-    /// The higher the weight, the more a node's potential max score is valued over its average
-    /// score. A weight of 1.0 means only max scores will be used; 0.0 means only average scores
-    /// will be used.
+    /// The higher the weight, the more a node's potential max score is valued
+    /// over its average score. A weight of 1.0 means only max scores will be used;
+    /// 0.0 means only average scores will be used.
     max_score_weighting_constant: f32,
     /// Higher values prioritize exploring less promising nodes.
     exploration_constant: f32,
@@ -72,6 +72,9 @@ impl Simulator {
         }
     }
 
+    /// Executes a series of actions with most game-valid moves available. Will
+    /// return early with `CraftResult::InvalidActionFailure` if an illegal move
+    /// is chosen.
     fn execute_actions(
         &mut self,
         start_index: usize,
@@ -106,6 +109,8 @@ impl Simulator {
         (current_index, current_state.check_result())
     }
 
+    /// Executes a series of actions with strict move pruning enabled. Will
+    /// panic if an unavailable action is chosen.
     fn execute_actions_strict(
         &mut self,
         start_index: usize,
@@ -142,7 +147,7 @@ impl Simulator {
         let w = self.max_score_weighting_constant;
         let c = self.exploration_constant;
 
-        let visits = state.visits as f32;
+        let visits = state.visits;
         let average_score = state.score_sum / visits;
 
         let exploitation = (1.0 - w) * average_score + w * state.max_score;
@@ -219,6 +224,8 @@ impl Simulator {
         }
     }
 
+    /// From a starting node, follow parent nodes back to the root node, updating
+    /// statistics for each node along the way.
     fn backpropagate(&mut self, start_index: usize, target_index: usize, score: f32) {
         let mut current_index = start_index;
         loop {
@@ -236,6 +243,7 @@ impl Simulator {
         }
     }
 
+    /// The starting point for one round of MCTS.
     fn search(&mut self, start_index: usize) -> &mut Self {
         for _ in 0..self.iterations {
             let selected_index = self.select(start_index);
@@ -254,6 +262,9 @@ impl Simulator {
         self
     }
 
+    /// Traverses the current tree, following actions that result in the highest
+    /// score to find the best solution. This is a convenient way to extract a
+    /// solution after running `search`.
     fn solution(&self) -> (Vec<Action>, CraftState) {
         let mut actions = vec![];
         let mut node = self.tree.get(0);
@@ -276,14 +287,15 @@ impl Simulator {
         (actions, node.state.clone())
     }
 
+    /// A standalone method to obtain a `CraftState` from a series of actions.
     pub fn simulate(state: &CraftState, actions: Vec<Action>) -> (CraftState, Option<CraftResult>) {
         let mut sim = Self::from_state(state, SearchOptions::default());
         let (index, result) = sim.execute_actions(0, actions);
         (sim.tree.get(index).state.clone(), result)
     }
 
-    /// Search for good actions step by step. Runs a new simulation from
-    /// scratch for each action, and picks the best next action.
+    /// Searches for good actions step by step. Creates a fresh tree and runs a
+    /// new search from scratch for each action picked.
     pub fn search_stepwise(
         state: &CraftState,
         action_history: Vec<Action>,
@@ -313,8 +325,9 @@ impl Simulator {
         (actions, state)
     }
 
-    /// Constructs a single large tree and picks the action path that results in
-    /// the highest score.
+    /// Constructs a single large tree, storing good candidate paths in memory
+    /// based on the `score_storage_threshold` option. When the iteration limit
+    /// is reached, the action path that results in the highest score is returned.
     pub fn search_oneshot(
         state: &CraftState,
         action_history: Vec<Action>,

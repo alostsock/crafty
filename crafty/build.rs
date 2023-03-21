@@ -101,7 +101,7 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     // Generate source files
     let out_dir = env::var("OUT_DIR")?;
     let out_path = Path::new(&out_dir).join("recipes.rs");
-    let mut recipes_writer = BufWriter::new(File::create(&out_path).unwrap());
+    let mut recipes_writer = BufWriter::new(File::create(out_path).unwrap());
     writeln!(
         recipes_writer,
         "static RECIPES: phf::Map<u32, &'static [Recipe]> = {};\n",
@@ -133,7 +133,7 @@ fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
     // Generate source files
     let out_dir = env::var("OUT_DIR")?;
     let out_path = Path::new(&out_dir).join("levels.rs");
-    let mut levels_writer = BufWriter::new(File::create(&out_path).unwrap());
+    let mut levels_writer = BufWriter::new(File::create(out_path).unwrap());
     writeln!(
         levels_writer,
         "static LEVELS: phf::Map<u32, u32> = {};\n",

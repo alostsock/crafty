@@ -72,8 +72,8 @@ enum SearchMode {
 
 impl std::fmt::Display for SearchMode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let s = format!("{:?}", self).to_lowercase();
-        write!(f, "{}", s)
+        let s = format!("{self:?}").to_lowercase();
+        write!(f, "{s}")
     }
 }
 
@@ -121,7 +121,7 @@ fn main() -> Result<()> {
         if manual_action {
             // Prompt for an action
             let mut actions = state.available_moves.clone();
-            actions.sort_by_key(|k| format!("{}", k));
+            actions.sort_by_key(|k| format!("{k}"));
             let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
 
