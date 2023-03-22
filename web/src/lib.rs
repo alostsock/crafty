@@ -100,7 +100,15 @@ pub fn search_stepwise(
         .collect();
     let options: SearchOptions = from_js_value(options).unwrap();
 
-    let start_state = CraftState::new(&player, &recipe, 50);
+    let max_steps = 50;
+    let (start_state, result) = Simulator::simulate(
+        &CraftState::new(&player, &recipe, max_steps),
+        action_history.clone(),
+    );
+
+    if result.is_some() {
+        return to_js_value(&action_history).unwrap().unchecked_into();
+    }
 
     let callback = |action: Action| {
         let null = JsValue::null();
