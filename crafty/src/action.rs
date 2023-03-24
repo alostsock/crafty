@@ -55,6 +55,12 @@ macro_rules! create_actions {
                 }
             }
 
+            pub fn name(&self) -> &'static str {
+                match *self {
+                    $(Action::$action_name => stringify!($action_name),)*
+                }
+            }
+
             pub fn label(&self) -> &'static str {
                 match *self {
                     $(Action::$action_name => $label,)*

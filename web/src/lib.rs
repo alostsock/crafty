@@ -47,6 +47,8 @@ export function simulateActions(
 
 #[wasm_bindgen(js_name = simulateActions, skip_typescript)]
 pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> JsValue {
+    console_error_panic_hook::set_once();
+
     let recipe: Recipe = from_js_value(recipe).unwrap();
     let player: Player = from_js_value(player).unwrap();
     let actions_str: Vec<String> = from_js_value(actions).unwrap();
@@ -91,6 +93,8 @@ pub fn search_stepwise(
     options: JsValue,
     action_callback: js_sys::Function,
 ) -> JsValue {
+    console_error_panic_hook::set_once();
+
     let recipe: Recipe = from_js_value(recipe).unwrap();
     let player: Player = from_js_value(player).unwrap();
     let action_history_str: Vec<String> = from_js_value(action_history).unwrap();
@@ -112,12 +116,13 @@ pub fn search_stepwise(
 
     let callback = |action: Action| {
         let null = JsValue::null();
-        let action_str = JsValue::from(action.to_string());
+        let action_str = JsValue::from(action.name());
         action_callback.call1(&null, &action_str).unwrap();
     };
 
     let (actions, _) =
         Simulator::search_stepwise(&start_state, action_history, options, Some(&callback));
 
-    to_js_value(&actions).unwrap().unchecked_into()
+    let actions_str: Vec<&'static str> = actions.iter().map(|a| a.name()).collect();
+    to_js_value(&actions_str).unwrap().unchecked_into()
 }
