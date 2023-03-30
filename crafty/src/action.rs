@@ -215,7 +215,7 @@ create_actions!(
         },
     [PrudentSynthesis, "Prudent Synthesis"]
         progress 1.8,
-        durability 10,
+        durability 5,
         cp 18,
     [TrainedFinesse, "Trained Finesse"]
         quality 1.0,
