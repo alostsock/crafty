@@ -126,3 +126,19 @@ pub fn search_stepwise(
     let actions_str: Vec<&'static str> = actions.iter().map(|a| a.name()).collect();
     to_js_value(&actions_str).unwrap().unchecked_into()
 }
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS_TYPE_GENERATE_MACRO_TEXT: &'static str = r#"
+export function generateMacroText(actions: Action[]): string[];
+"#;
+
+#[wasm_bindgen(js_name = generateMacroText, skip_typescript)]
+pub fn generate_macro_text(actions: JsValue) -> JsValue {
+    let actions_str: Vec<String> = from_js_value(actions).unwrap();
+    let macro_text: Vec<String> = actions_str
+        .iter()
+        .map(|a| Action::from_str(a).unwrap().macro_text())
+        .collect();
+
+    to_js_value(&macro_text).unwrap().unchecked_into()
+}
