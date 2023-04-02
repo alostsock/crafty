@@ -59,7 +59,7 @@ impl CraftState {
             observe: state.observe,
             next_combo_action: state.next_combo_action,
             buffs: state.buffs.clone(),
-            available_moves: state.available_moves.clone(),
+            available_moves: state.available_moves.to_vec(),
         }
     }
 }

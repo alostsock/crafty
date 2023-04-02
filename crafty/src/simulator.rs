@@ -92,13 +92,9 @@ impl<'a> Simulator<'a> {
                 return (current_index, Some(result));
             }
 
-            // the next action must be available to use, otherwise it's illegal 🚓
-            if let Some(index) = current_state
-                .available_moves
-                .iter()
-                .position(|&m| m == action)
-            {
-                current_state.available_moves.swap_remove(index);
+            // the next action must be available to use
+            if current_state.available_moves.contains(action) {
+                current_state.available_moves.unset(action);
             } else {
                 return (current_index, Some(CraftResult::InvalidActionFailure));
             }
@@ -113,8 +109,7 @@ impl<'a> Simulator<'a> {
         (current_index, current_state.check_result())
     }
 
-    /// Executes a series of actions with strict move pruning enabled. Will
-    /// panic if an unavailable action is chosen.
+    /// Executes a series of actions with strict move pruning enabled.
     fn execute_actions_strict(
         &mut self,
         start_index: usize,
@@ -128,12 +123,12 @@ impl<'a> Simulator<'a> {
                 return (current_index, Some(result));
             }
 
-            let action_index = current_state
-                .available_moves
-                .iter()
-                .position(|&m| m == action)
-                .unwrap();
-            current_state.available_moves.swap_remove(action_index);
+            // the next action must be available to use
+            if current_state.available_moves.contains(action) {
+                current_state.available_moves.unset(action);
+            } else {
+                return (current_index, Some(CraftResult::InvalidActionFailure));
+            }
 
             let next_state = current_state.execute_strict(&action);
             let next_index = self.tree.insert(current_index, next_state);
@@ -196,8 +191,7 @@ impl<'a> Simulator<'a> {
         if let Some(result) = initial_state.check_result() {
             return (initial_index, result);
         }
-        let random_index = self.rng.gen_range(0..initial_state.available_moves.len());
-        let random_action = initial_state.available_moves.swap_remove(random_index);
+        let random_action = initial_state.available_moves.pick(&mut self.rng);
         let expanded_state = initial_state.execute_strict(&random_action);
         let expanded_index = self.tree.insert(initial_index, expanded_state);
 
@@ -208,10 +202,9 @@ impl<'a> Simulator<'a> {
             if let Some(result) = current_state.check_result() {
                 break result;
             }
-            let random_index = self.rng.gen_range(0..current_state.available_moves.len());
-            let random_action = current_state.available_moves.get(random_index).unwrap();
-            action_history.push(*random_action);
-            current_state = current_state.execute_strict(random_action);
+            let random_action = current_state.available_moves.sample(&mut self.rng);
+            action_history.push(random_action);
+            current_state = current_state.execute_strict(&random_action);
         };
 
         // store the result if a max score was reached
@@ -493,10 +486,7 @@ mod tests {
         // 10 stacks of IQ
         assert_eq!(10, end_state.buffs.inner_quiet);
         // should proc Trained Finesse
-        assert!(end_state
-            .available_moves
-            .iter()
-            .any(|&a| a == TrainedFinesse));
+        assert!(end_state.available_moves.contains(TrainedFinesse));
     }
 
     #[test]

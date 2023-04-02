@@ -1,7 +1,6 @@
-use crate::{data, Player, Recipe};
-use serde::Serialize;
+use crate::{data, Action, ActionSet, Player, Recipe};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct CraftContext {
     /// Multiply by synthesis action efficiency for increase in progress
     pub progress_factor: f32,
@@ -12,6 +11,7 @@ pub struct CraftContext {
     pub quality_target: u32,
     pub durability_max: i8,
     pub cp_max: u32,
+    pub action_pool: ActionSet,
 }
 
 impl CraftContext {
@@ -45,6 +45,7 @@ impl CraftContext {
             quality_target: recipe.quality,
             durability_max: recipe.durability,
             cp_max: player.cp,
+            action_pool: ActionSet::from_vec(&Action::ACTIONS.to_vec()),
         }
     }
 }

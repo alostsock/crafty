@@ -1,4 +1,4 @@
-use crate::{action::Attributes, Action, CraftContext};
+use crate::{action::Attributes, Action, ActionSet, CraftContext};
 use serde::Serialize;
 use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
@@ -47,7 +47,7 @@ impl Buffs {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct CraftState<'a> {
     /// This is intended to be a readonly field that contains important values
     /// that won't change while a craft is in progress. This reduces the amount
@@ -72,7 +72,7 @@ pub struct CraftState<'a> {
     pub max_score: f32,
     /// Number of times this node has been visited
     pub visits: f32,
-    pub available_moves: Vec<Action>,
+    pub available_moves: ActionSet,
 }
 
 impl<'a> fmt::Display for CraftState<'a> {
@@ -108,7 +108,7 @@ impl<'a> CraftState<'a> {
             score_sum: 0.0,
             max_score: 0.0,
             visits: 0.0,
-            available_moves: vec![],
+            available_moves: ActionSet::new(),
         }
     }
 
@@ -141,8 +141,8 @@ impl<'a> CraftState<'a> {
             return self;
         }
 
-        let mut available_moves = Action::ACTIONS.to_vec();
-        available_moves.retain(|action| {
+        let mut available_moves = self.context.action_pool.clone();
+        available_moves.keep(|action| {
             use Action::*;
             let attrs = action.attributes();
 
@@ -243,7 +243,7 @@ impl<'a> CraftState<'a> {
             score_sum: 0.0,
             max_score: 0.0,
             visits: 0.0,
-            available_moves: vec![],
+            available_moves: ActionSet::new(),
             ..*self
         };
 

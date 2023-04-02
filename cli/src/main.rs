@@ -137,7 +137,7 @@ fn main() -> Result<()> {
 
         if continue_manually {
             // Prompt for an action
-            let mut actions = state.available_moves.clone();
+            let mut actions = state.available_moves.to_vec();
             actions.sort_by_key(|k| format!("{k}"));
             let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
