@@ -2,6 +2,7 @@ use crate::{data, Action, ActionSet, Player, Recipe};
 
 #[derive(Debug, Clone)]
 pub struct CraftContext {
+    pub job_level: u32,
     /// Multiply by synthesis action efficiency for increase in progress
     pub progress_factor: f32,
     /// Multiply by touch action efficiency for increase in quality
@@ -35,9 +36,36 @@ impl CraftContext {
         (progress_factor.floor(), quality_factor.floor())
     }
 
+    fn determine_action_pool(player: &Player) -> ActionSet {
+        let mut pool = ActionSet::new();
+
+        for action in Action::ACTIONS {
+            let action_level = action.attributes().level;
+            if player.job_level >= action_level {
+                pool.set(*action);
+            }
+        }
+
+        {
+            use Action::*;
+            if pool.contains(BasicSynthesisTraited) && pool.contains(BasicSynthesis) {
+                pool.unset(BasicSynthesis);
+            }
+            if pool.contains(CarefulSynthesisTraited) && pool.contains(CarefulSynthesis) {
+                pool.unset(CarefulSynthesis);
+            }
+            if pool.contains(GroundworkTraited) && pool.contains(Groundwork) {
+                pool.unset(Groundwork);
+            }
+        }
+
+        pool
+    }
+
     pub fn new(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
         let (progress_factor, quality_factor) = Self::factors(player, recipe);
         Self {
+            job_level: player.job_level,
             progress_factor,
             quality_factor,
             step_max: max_steps,
@@ -45,7 +73,7 @@ impl CraftContext {
             quality_target: recipe.quality,
             durability_max: recipe.durability,
             cp_max: player.cp,
-            action_pool: ActionSet::from_vec(&Action::ACTIONS.to_vec()),
+            action_pool: Self::determine_action_pool(player),
         }
     }
 }

@@ -5,6 +5,7 @@ use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
 
 pub struct Attributes {
+    pub level: u32,
     pub progress_efficiency: Option<f32>,
     pub quality_efficiency: Option<f32>,
     pub durability_cost: Option<i8>,
@@ -25,6 +26,7 @@ macro_rules! create_actions {
     (
         $(
             [$action_name:ident, $label:expr]
+                level $level:expr,
                 $(progress $progress:expr,)?
                 $(quality $quality:expr,)?
                 $(durability $durability:expr,)?
@@ -46,6 +48,7 @@ macro_rules! create_actions {
                 match *self {
                     $(
                         Action::$action_name => Attributes {
+                            level: $level,
                             progress_efficiency: optional!($( $progress )?),
                             quality_efficiency: optional!($( $quality )?),
                             durability_cost: optional!($( $durability )?),
@@ -88,9 +91,11 @@ macro_rules! create_actions {
 // https://na.finalfantasyxiv.com/crafting_gathering_guide/carpenter/
 create_actions!(
     [BasicSynthesis, "Basic Synthesis"]
-        progress 1.2,
+        level 1,
+        progress 1.0,
         durability 10,
     [BasicTouch, "Basic Touch"]
+        level 5,
         quality 1.0,
         durability 10,
         cp 18,
@@ -98,6 +103,7 @@ create_actions!(
             state.next_combo_action = Some(Action::StandardTouch);
         },
     [MastersMend, "Master's Mend"]
+        level 7,
         durability 0,  // indicates that this move is not a buff
         cp 88,
         effect |state| {
@@ -106,6 +112,7 @@ create_actions!(
     // HastyTouch
     // RapidSynthesis
     [Observe, "Observe"]
+        level 13,
         durability 0,  // indicates that this move is not a buff
         cp 7,
         effect |state| {
@@ -113,17 +120,20 @@ create_actions!(
         },
     // TricksOfTheTrade
     [WasteNot, "Waste Not"]
+        level 15,
         cp 56,
         effect |state| {
             state.buffs.waste_not = 4;
             state.buffs.waste_not_ii = 0;
         },
     [Veneration, "Veneration"]
+        level 15,
         cp 18,
         effect |state| {
             state.buffs.veneration = 4;
         },
     [StandardTouch, "Standard Touch"]
+        level 18,
         quality 1.25,
         durability 10,
         cp 32,
@@ -133,28 +143,37 @@ create_actions!(
             }
         },
     [GreatStrides, "Great Strides"]
+        level 21,
         cp 32,
         effect |state| {
             state.buffs.great_strides = 3;
         },
     [Innovation, "Innovation"]
+        level 26,
         cp 18,
         effect |state| {
             state.buffs.innovation = 4;
         },
+    [BasicSynthesisTraited, "Basic Synthesis"]
+        level 31,
+        progress 1.2,
+        durability 10,
     // FinalAppraisal
     [WasteNotII, "Waste Not II"]
+        level 47,
         cp 98,
         effect |state| {
             state.buffs.waste_not = 0;
             state.buffs.waste_not_ii = 8;
         },
     [ByregotsBlessing, "Byregot's Blessing"]
+        level 50,
         quality 0.0,  // a placeholder to indicate this action *does* affect quality
         durability 10,
         cp 24,
     // PreciseTouch
     [MuscleMemory, "Muscle Memory"]
+        level 54,
         progress 3.0,
         durability 10,
         cp 6,
@@ -162,63 +181,79 @@ create_actions!(
             state.buffs.muscle_memory = 5;
         },
     [CarefulSynthesis, "Careful Synthesis"]
-        progress 1.8,
+        level 62,
+        progress 1.5,
         durability 10,
         cp 7,
     [Manipulation, "Manipulation"]
+        level 65,
         cp 96,
         effect |state| {
             state.buffs.manipulation = 8;
         },
     [PrudentTouch, "Prudent Touch"]
+        level 66,
         quality 1.0,
         durability 5,
         cp 25,
     [FocusedSynthesis, "Focused Synthesis"]
+        level 67,
         progress 2.0,
         durability 10,
         cp 5,
     [FocusedTouch, "Focused Touch"]
+        level 68,
         quality 1.5,
         durability 10,
         cp 18,
     [Reflect, "Reflect"]
+        level 69,
         quality 1.0,
         durability 10,
         cp 6,
-        effect |state| {
-            state.buffs.inner_quiet += 1;
-        },
     [PreparatoryTouch, "Preparatory Touch"]
+        level 71,
         quality 2.0,
         durability 20,
         cp 40,
-        effect |state| {
-            state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
-        },
     [Groundwork, "Groundwork"]
-        progress 3.6,
+        level 72,
+        progress 3.0,
         durability 20,
         cp 18,
     [DelicateSynthesis, "Delicate Synthesis"]
+        level 76,
         progress 1.0,
         quality 1.0,
         durability 10,
         cp 32,
     // Intensive Synthesis
     // TrainedEye
+    [CarefulSynthesisTraited, "Careful Synthesis"]
+        level 82,
+        progress 1.8,
+        durability 10,
+        cp 7,
     [AdvancedTouch, "Advanced Touch"]
+        level 84,
         quality 1.5,
         durability 10,
         cp 46,
         effect |state| {
             state.next_combo_action = None;
         },
+    [GroundworkTraited, "Groundwork"]
+        level 86,
+        progress 3.6,
+        durability 20,
+        cp 18,
     [PrudentSynthesis, "Prudent Synthesis"]
+        level 88,
         progress 1.8,
         durability 5,
         cp 18,
     [TrainedFinesse, "Trained Finesse"]
+        level 90,
         quality 1.0,
         cp 32,
 );

@@ -205,7 +205,7 @@ impl<'a> CraftState<'a> {
                 // don't allow Groundwork if
                 //  1) waste not isn't active, or
                 //  2) it's downgraded
-                Groundwork if strict => {
+                Groundwork | GroundworkTraited if strict => {
                     if self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0 {
                         return false;
                     }
@@ -222,9 +222,23 @@ impl<'a> CraftState<'a> {
                     self.buffs.veneration == 0 && self.buffs.innovation == 0
                 }
                 // make sure we've exhaustively handled every action; don't use a wildcard here
-                AdvancedTouch | BasicSynthesis | BasicTouch | CarefulSynthesis
-                | DelicateSynthesis | GreatStrides | Groundwork | Innovation | Manipulation
-                | MastersMend | PreparatoryTouch | StandardTouch | Veneration | WasteNot
+                AdvancedTouch
+                | BasicSynthesis
+                | BasicSynthesisTraited
+                | BasicTouch
+                | CarefulSynthesis
+                | CarefulSynthesisTraited
+                | DelicateSynthesis
+                | GreatStrides
+                | Groundwork
+                | GroundworkTraited
+                | Innovation
+                | Manipulation
+                | MastersMend
+                | PreparatoryTouch
+                | StandardTouch
+                | Veneration
+                | WasteNot
                 | WasteNotII => true,
             }
         });
@@ -248,6 +262,7 @@ impl<'a> CraftState<'a> {
         };
 
         let Attributes {
+            level: _,
             progress_efficiency,
             quality_efficiency,
             durability_cost,
@@ -262,11 +277,15 @@ impl<'a> CraftState<'a> {
 
         if let Some(efficiency) = quality_efficiency {
             state.quality += Action::calc_quality_increase(&state, efficiency);
-            if action == &Action::ByregotsBlessing {
-                state.buffs.inner_quiet = 0;
-            } else {
-                state.buffs.inner_quiet = cmp::min(state.buffs.inner_quiet + 1, 10);
-            }
+
+            state.buffs.inner_quiet = match &action {
+                Action::ByregotsBlessing => 0,
+                Action::Reflect | Action::PreparatoryTouch => {
+                    cmp::min(state.buffs.inner_quiet + 2, 10)
+                }
+                _ => cmp::min(state.buffs.inner_quiet + 1, 10),
+            };
+
             state.buffs.great_strides = 0;
         }
 

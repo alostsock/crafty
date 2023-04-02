@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn basic_actions() {
-        let actions = vec![BasicTouch, BasicSynthesis, MastersMend];
+        let actions = vec![BasicTouch, BasicSynthesisTraited, MastersMend];
         let (context, _) = setup_1();
         assert_craft(&context, actions, 276, 262, 80, 469);
     }
@@ -503,9 +503,9 @@ mod tests {
             GreatStrides,
             ByregotsBlessing,
             Veneration,
-            Groundwork,
-            Groundwork,
-            Groundwork,
+            GroundworkTraited,
+            GroundworkTraited,
+            GroundworkTraited,
         ];
         let (context, _) = setup_1();
         Simulator::simulate(&context, actions);
@@ -518,8 +518,8 @@ mod tests {
             Manipulation,
             Veneration,
             WasteNotII,
-            Groundwork,
-            Groundwork,
+            GroundworkTraited,
+            GroundworkTraited,
             StandardTouch,
             Innovation,
             PreparatoryTouch,

@@ -77,7 +77,7 @@ const ROTATION_1: &[Action] = &[
     GreatStrides,
     ByregotsBlessing,
     Veneration,
-    Groundwork,
-    Groundwork,
-    Groundwork,
+    GroundworkTraited,
+    GroundworkTraited,
+    GroundworkTraited,
 ];
