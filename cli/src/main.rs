@@ -3,7 +3,9 @@
 
 use anyhow::{anyhow, Context, Error, Result};
 use clap::Parser;
-use crafty::{data, Action, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator};
+use crafty::{
+    data, Action, CraftContext, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator,
+};
 use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
@@ -109,36 +111,36 @@ fn main() -> Result<()> {
         exploration_constant: Some(args.exploration_constant),
     };
 
-    let mut state = CraftState::new(player, recipe, args.steps);
+    let context = CraftContext::new(player, recipe, args.steps);
     let mut action_history: Vec<Action> = vec![];
     loop {
-        print_state(&state);
+        let (state, result) = Simulator::simulate(&context, action_history.clone());
+        match result {
+            None => {
+                print_state(&state);
+            }
+            Some(CraftResult::Finished(_)) => {
+                println!("{}", green("\nThe craft is complete."),);
+                print_state(&state);
+                break;
+            }
+            _ => {
+                println!("{}", red("\nThe craft has failed."));
+                print_state(&state);
+                break;
+            }
+        }
 
-        let manual_action = Confirm::new()
+        let continue_manually = Confirm::new()
             .with_prompt("  continue manually?")
             .interact()?;
 
-        if manual_action {
+        if continue_manually {
             // Prompt for an action
             let mut actions = state.available_moves.clone();
             actions.sort_by_key(|k| format!("{k}"));
             let action = *prompt_selection("action?:", &actions, true)?;
             action_history.push(action);
-
-            let (new_state, result) = Simulator::simulate(&state, vec![action]);
-            match result {
-                None => state = new_state,
-                Some(CraftResult::Finished(_)) => {
-                    println!("{}", green("\nThe craft is complete."),);
-                    print_state(&new_state);
-                    break;
-                }
-                _ => {
-                    println!("{}", red("\nThe craft has failed."));
-                    print_state(&new_state);
-                    break;
-                }
-            }
         } else {
             print_info(&format!(
                 "\n  attempting to find the best solution under {} steps...",
@@ -152,13 +154,13 @@ fn main() -> Result<()> {
                 .into_par_iter()
                 .map(|_| match args.search_mode {
                     SearchMode::Stepwise => Simulator::search_stepwise(
-                        &state,
+                        &context,
                         action_history.clone(),
                         search_options,
                         None,
                     ),
                     SearchMode::Oneshot => {
-                        Simulator::search_oneshot(&state, action_history.clone(), search_options)
+                        Simulator::search_oneshot(&context, action_history.clone(), search_options)
                     }
                 })
                 .max_by(|(_, a), (_, b)| a.max_score.partial_cmp(&b.max_score).unwrap())

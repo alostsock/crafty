@@ -1,10 +1,10 @@
-use crafty::{Action, CraftState, Player, Recipe, SearchOptions, Simulator};
+use crafty::{Action, CraftContext, Player, Recipe, SearchOptions, Simulator};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
 use Action::*;
 
-fn setup_sim(rng_seed: Option<u64>) -> (CraftState, SearchOptions) {
+fn setup_sim(rng_seed: Option<u64>) -> (CraftContext, SearchOptions) {
     let recipe = Recipe {
         recipe_level: 560,
         job_level: 90,
@@ -20,20 +20,22 @@ fn setup_sim(rng_seed: Option<u64>) -> (CraftState, SearchOptions) {
         conditions_flag: 15,
     };
     let player = Player::new(90, 3304, 3374, 575);
-    let state = CraftState::new(&player, &recipe, 15);
+    let context = CraftContext::new(&player, &recipe, 15);
     let options = SearchOptions {
         iterations: 50_000,
         rng_seed,
         ..Default::default()
     };
-    (state, options)
+    (context, options)
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("rotation", |b| {
         b.iter_batched(
             || setup_sim(None),
-            |(state, _)| Simulator::simulate(&state, black_box(ROTATION_1.to_vec())),
+            |(context, _)| {
+                Simulator::simulate(&context, black_box(ROTATION_1.to_vec()));
+            },
             BatchSize::SmallInput,
         )
     });
@@ -46,8 +48,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function(seed.to_string().as_str(), |b| {
             b.iter_batched(
                 || setup_sim(Some(seed)),
-                |(state, options)| {
-                    Simulator::search_oneshot(&state, black_box(vec![]), options);
+                |(context, options)| {
+                    Simulator::search_oneshot(&context, black_box(vec![]), options);
                 },
                 BatchSize::SmallInput,
             )

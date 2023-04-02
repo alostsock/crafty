@@ -100,7 +100,7 @@ create_actions!(
         durability 0,  // indicates that this move is not a buff
         cp 88,
         effect |state| {
-            state.durability = cmp::min(state.durability + 30, state.durability_max);
+            state.durability = cmp::min(state.durability + 30, state.context.durability_max);
         },
     // HastyTouch
     // RapidSynthesis
@@ -226,7 +226,7 @@ impl Action {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_sign_loss)]
     pub fn calc_progress_increase(state: &CraftState, efficiency: f32) -> u32 {
-        let base = state.progress_factor;
+        let base = state.context.progress_factor;
 
         let mut multiplier = 1.0;
         if state.buffs.veneration > 0 {
@@ -242,7 +242,7 @@ impl Action {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_sign_loss)]
     pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
-        let base = state.quality_factor;
+        let base = state.context.quality_factor;
 
         let mut efficiency = efficiency;
 

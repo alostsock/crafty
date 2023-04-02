@@ -1,4 +1,7 @@
-use crafty::{Action, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator};
+use crafty::{
+    Action, CraftContext, CraftResult, CraftState as InternalCraftState, Player, Recipe,
+    SearchOptions, Simulator,
+};
 use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use std::str::FromStr;
@@ -20,6 +23,45 @@ pub fn recipes_by_job_level(player_job_level: u32) -> Recipes {
     let recipes = crafty::data::recipes(player_job_level);
 
     to_js_value(&recipes).unwrap().unchecked_into()
+}
+
+#[derive(Serialize, TsType)]
+struct CraftState {
+    step: u8,
+    step_max: u8,
+    progress: u32,
+    progress_target: u32,
+    quality: u32,
+    quality_target: u32,
+    durability: i8,
+    durability_max: i8,
+    cp: u32,
+    cp_max: u32,
+    observe: bool,
+    next_combo_action: Option<Action>,
+    buffs: Buffs,
+    available_moves: Vec<Action>,
+}
+
+impl CraftState {
+    fn from_internal(state: &InternalCraftState) -> Self {
+        Self {
+            step: state.step,
+            step_max: state.context.step_max,
+            progress: state.progress,
+            progress_target: state.context.progress_target,
+            quality: state.quality,
+            quality_target: state.context.quality_target,
+            durability: state.durability,
+            durability_max: state.context.durability_max,
+            cp: state.cp,
+            cp_max: state.context.cp_max,
+            observe: state.observe,
+            next_combo_action: state.next_combo_action,
+            buffs: state.buffs.clone(),
+            available_moves: state.available_moves.clone(),
+        }
+    }
 }
 
 #[derive(Serialize, TsType)]
@@ -57,11 +99,12 @@ pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> J
         .map(|a| Action::from_str(a).unwrap())
         .collect();
 
-    let start_state = CraftState::new(&player, &recipe, 50);
-    let (end_state, result) = Simulator::simulate(&start_state, actions);
+    let context = CraftContext::new(&player, &recipe, 50);
+
+    let (end_state, result) = Simulator::simulate(&context, actions);
 
     let sim_result = SimulatorResult {
-        craft_state: end_state,
+        craft_state: CraftState::from_internal(&end_state),
         completion_reason: match result {
             Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
             Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
@@ -104,24 +147,18 @@ pub fn search_stepwise(
         .collect();
     let options: SearchOptions = from_js_value(options).unwrap();
 
-    let max_steps = 50;
-    let (start_state, result) = Simulator::simulate(
-        &CraftState::new(&player, &recipe, max_steps),
-        action_history.clone(),
-    );
-
-    if result.is_some() {
-        return to_js_value(&action_history).unwrap().unchecked_into();
-    }
-
     let callback = |action: Action| {
         let null = JsValue::null();
         let action_str = JsValue::from(action.name());
         action_callback.call1(&null, &action_str).unwrap();
     };
 
-    let (actions, _) =
-        Simulator::search_stepwise(&start_state, action_history, options, Some(&callback));
+    let (actions, _) = Simulator::search_stepwise(
+        &CraftContext::new(&player, &recipe, 50),
+        action_history,
+        options,
+        Some(&callback),
+    );
 
     let actions_str: Vec<&'static str> = actions.iter().map(|a| a.name()).collect();
     to_js_value(&actions_str).unwrap().unchecked_into()
