@@ -288,13 +288,15 @@ impl<'a> CraftState<'a> {
         if let Some(efficiency) = quality_efficiency {
             state.quality += Action::calc_quality_increase(&state, efficiency);
 
-            state.buffs.inner_quiet = match &action {
-                Action::ByregotsBlessing => 0,
-                Action::Reflect | Action::PreparatoryTouch => {
-                    cmp::min(state.buffs.inner_quiet + 2, 10)
-                }
-                _ => cmp::min(state.buffs.inner_quiet + 1, 10),
-            };
+            if state.context.job_level >= 11 {
+                state.buffs.inner_quiet = match &action {
+                    Action::ByregotsBlessing => 0,
+                    Action::Reflect | Action::PreparatoryTouch => {
+                        cmp::min(state.buffs.inner_quiet + 2, 10)
+                    }
+                    _ => cmp::min(state.buffs.inner_quiet + 1, 10),
+                };
+            }
 
             state.buffs.great_strides = 0;
         }
