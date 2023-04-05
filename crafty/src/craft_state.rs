@@ -346,21 +346,37 @@ impl<'a> CraftState<'a> {
     /// An evaluation of the craft. Returns a value from 0 to 1.
     #[allow(clippy::cast_precision_loss)]
     pub fn score(&self) -> f32 {
-        // bonuses should add up to 1.0
-        let quality_bonus: f32 = 0.995;
-        let fewer_steps_bonus: f32 = 0.005;
-
-        if self.progress >= self.context.progress_target {
-            let quality_score = quality_bonus
-                .min(quality_bonus * self.quality as f32 / self.context.quality_target as f32);
-
-            let fewer_steps_score = fewer_steps_bonus
-                * (1.0_f32 - f32::from(self.step) / f32::from(self.context.step_max));
-
-            quality_score + fewer_steps_score
-        } else {
-            0.0
+        fn apply(bonus: f32, value: f32, target: f32) -> f32 {
+            bonus * 1f32.min(value / target)
         }
+
+        // bonuses should add up to 1.0
+        let progress_bonus = 0.40;
+        let quality_bonus = 0.50;
+        let durability_bonus = 0.05;
+        let cp_bonus = 0.05;
+
+        let progress_score = apply(
+            progress_bonus,
+            self.progress as f32,
+            self.context.progress_target as f32,
+        );
+
+        let quality_score = apply(
+            quality_bonus,
+            self.quality as f32,
+            self.context.quality_target as f32,
+        );
+
+        let durability_score = apply(
+            durability_bonus,
+            f32::from(self.durability),
+            f32::from(self.context.durability_max),
+        );
+
+        let cp_score = apply(cp_bonus, self.cp as f32, self.context.cp_max as f32);
+
+        progress_score + quality_score + durability_score + cp_score
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
