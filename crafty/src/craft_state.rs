@@ -215,9 +215,7 @@ impl<'a> CraftState<'a> {
                 // don't allow buffs too early
                 MastersMend if strict => self.context.durability_max - self.durability >= 25,
                 Manipulation if strict => self.buffs.manipulation == 0,
-                GreatStrides if strict => {
-                    self.buffs.veneration == 0 && self.buffs.great_strides == 0
-                }
+                GreatStrides if strict => self.buffs.great_strides == 0,
                 Veneration | Innovation if strict => {
                     self.buffs.veneration == 0 && self.buffs.innovation == 0
                 }
