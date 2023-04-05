@@ -152,38 +152,50 @@ impl<'a> CraftState<'a> {
                 }
             }
 
-            // only allow Focused moves after Observe
-            if strict && self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
-                return false;
-            }
-
-            // don't allow quality moves under Muscle Memory
-            if strict && self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
-                return false;
-            }
-
-            // don't allow pure quality moves under Veneration
-            if strict
-                && self.buffs.veneration > 0
-                && attrs.progress_efficiency.is_none()
-                && attrs.quality_efficiency.is_some()
-            {
-                return false;
-            }
-
-            // don't allow finishing the craft if there is significant progress remaining
-            if strict && self.quality < self.context.quality_target / 3 {
-                if let Some(progress_eff) = attrs.progress_efficiency {
-                    let progress_increase = Action::calc_progress_increase(self, progress_eff);
-                    if self.progress + progress_increase >= self.context.progress_target {
-                        return false;
-                    }
-                }
-            }
-
             // don't allow quality moves at max quality
             if self.quality >= self.context.quality_target && attrs.quality_efficiency.is_some() {
                 return false;
+            }
+
+            if strict {
+                // only allow Focused moves after Observe
+                if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
+                    return false;
+                }
+
+                // don't allow quality moves under Muscle Memory
+                if self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
+                    return false;
+                }
+
+                // don't allow pure quality moves under Veneration
+                if self.buffs.veneration > 0
+                    && attrs.progress_efficiency.is_none()
+                    && attrs.quality_efficiency.is_some()
+                {
+                    return false;
+                }
+
+                if let Some(progress_eff) = attrs.progress_efficiency {
+                    let progress_increase = Action::calc_progress_increase(self, progress_eff);
+                    let would_finish =
+                        self.progress + progress_increase >= self.context.progress_target;
+
+                    if would_finish {
+                        // don't allow finishing the craft if there is significant progress remaining
+                        if self.quality < self.context.quality_target / 5 {
+                            return false;
+                        }
+                    } else {
+                        // don't allow pure progress moves under Innovation, if it wouldn't finish the craft
+                        if self.buffs.innovation > 0
+                            && attrs.quality_efficiency.is_none()
+                            && attrs.progress_efficiency.is_some()
+                        {
+                            return false;
+                        }
+                    }
+                }
             }
 
             match action {
