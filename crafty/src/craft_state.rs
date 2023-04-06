@@ -200,7 +200,8 @@ impl<'a> CraftState<'a> {
 
             match action {
                 MuscleMemory | Reflect => self.step == 1,
-                ByregotsBlessing => self.buffs.inner_quiet > 1,
+                ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
+                ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
                 // use of Waste Not should be efficient
                 PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII if strict => {
