@@ -4,7 +4,7 @@ use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
 use Action::*;
 
-fn setup_sim(rng_seed: Option<u64>) -> (CraftContext, SearchOptions) {
+fn setup_sim(rng_seed: Option<u32>) -> (CraftContext, SearchOptions) {
     let recipe = Recipe {
         recipe_level: 560,
         job_level: 90,
@@ -44,7 +44,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     group
         .warm_up_time(Duration::new(5, 0))
         .measurement_time(Duration::new(30, 0));
-    for seed in 0..5_u64 {
+    for seed in 0..5_u32 {
         group.bench_function(seed.to_string().as_str(), |b| {
             b.iter_batched(
                 || setup_sim(Some(seed)),

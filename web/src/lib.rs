@@ -123,6 +123,7 @@ export function searchStepwise(
     recipe: Recipe,
     player: Player,
     action_history: Action[],
+    max_steps: number,
     options: SearchOptions,
     action_callback: (action: Action) => void,
 ): Action[];
@@ -133,6 +134,7 @@ pub fn search_stepwise(
     recipe: JsValue,
     player: JsValue,
     action_history: JsValue,
+    max_steps: u8,
     options: JsValue,
     action_callback: js_sys::Function,
 ) -> JsValue {
@@ -154,7 +156,7 @@ pub fn search_stepwise(
     };
 
     let (actions, _) = Simulator::search_stepwise(
-        &CraftContext::new(&player, &recipe, 50),
+        &CraftContext::new(&player, &recipe, max_steps),
         action_history,
         options,
         Some(&callback),

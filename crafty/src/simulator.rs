@@ -8,11 +8,15 @@ pub struct SearchOptions {
     /// Number of simulations to run
     pub iterations: u32,
     /// Numerical seed to use for RNG. Randomly picked if None
-    pub rng_seed: Option<u64>,
+    pub rng_seed: Option<u32>,
     /// A memory optimization option that specifies the minimum score a craft has
     /// to reach for action history to be stored. Only stores ~100% HQ states if None.
     pub score_storage_threshold: Option<f32>,
+    /// The higher the weight, the more a node's potential max score is valued
+    /// over its average score. A weight of 1.0 means only max scores will be used;
+    /// 0.0 means only average scores will be used.
     pub max_score_weighting_constant: Option<f32>,
+    /// Higher values prioritize exploring less promising nodes.
     pub exploration_constant: Option<f32>,
 }
 
@@ -31,19 +35,17 @@ impl Default for SearchOptions {
 #[derive(Debug)]
 pub struct Simulator<'a> {
     tree: Arena<CraftState<'a>>,
+
+    // from SearchOptions
     iterations: u32,
-    /// Amount of "dead ends" encountered. This means a node was selected, but
-    /// there weren't any available moves.
-    pub dead_ends_selected: u64,
-    pub rng_seed: u64,
     rng: SmallRng,
     score_storage_threshold: f32,
-    /// The higher the weight, the more a node's potential max score is valued
-    /// over its average score. A weight of 1.0 means only max scores will be used;
-    /// 0.0 means only average scores will be used.
     max_score_weighting_constant: f32,
-    /// Higher values prioritize exploring less promising nodes.
     exploration_constant: f32,
+
+    /// Amount of "dead ends" encountered. This means a node was selected, but
+    /// there weren't any available moves.
+    dead_ends_selected: u64,
 }
 
 impl<'a> Simulator<'a> {
@@ -55,8 +57,7 @@ impl<'a> Simulator<'a> {
             tree: Arena::new(state),
             iterations: options.iterations,
             dead_ends_selected: 0,
-            rng_seed,
-            rng: SmallRng::seed_from_u64(rng_seed),
+            rng: SmallRng::seed_from_u64(u64::from(rng_seed)),
             score_storage_threshold: options
                 .score_storage_threshold
                 .or(defaults.score_storage_threshold)
