@@ -41,8 +41,8 @@ impl CraftContext {
         let mut pool = ActionSet::new();
 
         for action in Action::ACTIONS {
-            let action_level = action.attributes().level;
-            if player.job_level >= action_level {
+            let attrs = action.attributes();
+            if player.job_level >= attrs.level && player.cp >= attrs.cp_cost.unwrap_or(0) {
                 pool.set(*action);
             }
         }

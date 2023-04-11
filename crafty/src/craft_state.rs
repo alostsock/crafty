@@ -159,6 +159,11 @@ impl<'a> CraftState<'a> {
             }
 
             if strict {
+                // always used Trained Eye if it's available
+                if self.step == 1 && self.context.action_pool.contains(TrainedEye) {
+                    return action == &TrainedEye;
+                }
+
                 // only allow Focused moves after Observe
                 if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
                     return false;
@@ -200,11 +205,8 @@ impl<'a> CraftState<'a> {
             }
 
             match action {
+                TrainedEye => false,
                 MuscleMemory | Reflect => self.step == 1,
-                TrainedEye => {
-                    self.step == 1
-                        && self.context.player_job_level - self.context.recipe_job_level >= 10
-                }
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
