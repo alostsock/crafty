@@ -205,8 +205,7 @@ impl<'a> CraftState<'a> {
             }
 
             match action {
-                TrainedEye => false,
-                MuscleMemory | Reflect => self.step == 1,
+                MuscleMemory | Reflect | TrainedEye => self.step == 1,
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
