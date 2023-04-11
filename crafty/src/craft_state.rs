@@ -133,6 +133,7 @@ impl<'a> CraftState<'a> {
     /// Examine the current craft state and populate `available_moves`.
     /// Enabling `strict` will add more rules that aim to prune as many
     /// suboptimal moves as possible.
+    #[allow(clippy::too_many_lines)]
     fn set_available_moves(&mut self, strict: bool) -> &mut Self {
         if self.progress >= self.context.progress_target
             || self.step >= self.context.step_max
@@ -200,6 +201,10 @@ impl<'a> CraftState<'a> {
 
             match action {
                 MuscleMemory | Reflect => self.step == 1,
+                TrainedEye => {
+                    self.step == 1
+                        && self.context.player_job_level - self.context.recipe_job_level >= 10
+                }
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
@@ -289,7 +294,7 @@ impl<'a> CraftState<'a> {
         if let Some(efficiency) = quality_efficiency {
             state.quality += Action::calc_quality_increase(&state, efficiency);
 
-            if state.context.job_level >= 11 {
+            if state.context.player_job_level >= 11 {
                 state.buffs.inner_quiet = match &action {
                     Action::ByregotsBlessing => 0,
                     Action::Reflect | Action::PreparatoryTouch => {

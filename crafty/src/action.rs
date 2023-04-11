@@ -228,7 +228,11 @@ create_actions!(
         durability 10,
         cp 32,
     // Intensive Synthesis
-    // TrainedEye
+    [TrainedEye, "Trained Eye"]
+        level 80,
+        quality 0.0, // a placeholder to indicate this action *does* affect quality
+        durability 0,
+        cp 250,
     [CarefulSynthesisTraited, "Careful Synthesis"]
         level 82,
         progress 1.8,
@@ -278,6 +282,10 @@ impl Action {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_sign_loss)]
     pub fn calc_quality_increase(state: &CraftState, efficiency: f32) -> u32 {
+        if state.action == Some(Action::TrainedEye) {
+            return state.context.quality_target - state.quality;
+        }
+
         let base = state.context.quality_factor;
 
         let mut efficiency = efficiency;

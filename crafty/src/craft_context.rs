@@ -2,7 +2,8 @@ use crate::{data, Action, ActionSet, Player, Recipe};
 
 #[derive(Debug, Clone)]
 pub struct CraftContext {
-    pub job_level: u32,
+    pub player_job_level: u32,
+    pub recipe_job_level: u32,
     /// Multiply by synthesis action efficiency for increase in progress
     pub progress_factor: f32,
     /// Multiply by touch action efficiency for increase in quality
@@ -65,7 +66,8 @@ impl CraftContext {
     pub fn new(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
         let (progress_factor, quality_factor) = Self::factors(player, recipe);
         Self {
-            job_level: player.job_level,
+            player_job_level: player.job_level,
+            recipe_job_level: recipe.job_level,
             progress_factor,
             quality_factor,
             step_max: max_steps,
