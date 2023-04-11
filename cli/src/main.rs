@@ -52,7 +52,7 @@ struct Args {
 
     /// A positive integer to use for seeding RNG
     #[clap(long, display_order = 1200)]
-    seed: Option<u64>,
+    seed: Option<u32>,
 
     /// A constant used for search. The higher the weight, the more a node's potential max score
     /// is valued over its average score. A weight of 1.0 means only max scores will be used; 0.0
