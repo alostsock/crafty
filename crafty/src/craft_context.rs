@@ -3,7 +3,6 @@ use crate::{data, Action, ActionSet, Player, Recipe};
 #[derive(Debug, Clone)]
 pub struct CraftContext {
     pub player_job_level: u32,
-    pub recipe_job_level: u32,
     /// Multiply by synthesis action efficiency for increase in progress
     pub progress_factor: f32,
     /// Multiply by touch action efficiency for increase in quality
@@ -37,12 +36,16 @@ impl CraftContext {
         (progress_factor.floor(), quality_factor.floor())
     }
 
-    fn determine_action_pool(player: &Player) -> ActionSet {
+    fn determine_action_pool(player: &Player, recipe: &Recipe) -> ActionSet {
         let mut pool = ActionSet::new();
 
         for action in Action::ACTIONS {
             let attrs = action.attributes();
             if player.job_level >= attrs.level && player.cp >= attrs.cp_cost.unwrap_or(0) {
+                if action == &Action::TrainedEye && player.job_level - recipe.job_level < 10 {
+                    continue;
+                }
+
                 pool.set(*action);
             }
         }
@@ -67,7 +70,6 @@ impl CraftContext {
         let (progress_factor, quality_factor) = Self::factors(player, recipe);
         Self {
             player_job_level: player.job_level,
-            recipe_job_level: recipe.job_level,
             progress_factor,
             quality_factor,
             step_max: max_steps,
@@ -75,7 +77,7 @@ impl CraftContext {
             quality_target: recipe.quality,
             durability_max: recipe.durability,
             cp_max: player.cp,
-            action_pool: Self::determine_action_pool(player),
+            action_pool: Self::determine_action_pool(player, recipe),
         }
     }
 }
