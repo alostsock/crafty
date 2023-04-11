@@ -224,7 +224,7 @@ impl<'a> CraftState<'a> {
                 // don't allow Groundwork if
                 //  1) waste not isn't active, or
                 //  2) it's downgraded
-                Groundwork | GroundworkTraited if strict => {
+                Groundwork | GroundworkTraited => {
                     if self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0 {
                         return false;
                     }
@@ -247,8 +247,6 @@ impl<'a> CraftState<'a> {
                 | CarefulSynthesisTraited
                 | DelicateSynthesis
                 | GreatStrides
-                | Groundwork
-                | GroundworkTraited
                 | Innovation
                 | Manipulation
                 | MastersMend
