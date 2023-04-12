@@ -169,8 +169,11 @@ impl<'a> CraftState<'a> {
                     return false;
                 }
 
-                // don't allow quality moves under Muscle Memory
-                if self.buffs.muscle_memory > 0 && attrs.quality_efficiency.is_some() {
+                // don't allow quality moves under Muscle Memory for difficult crafts
+                if self.context.recipe_job_level == 90
+                    && self.buffs.muscle_memory > 0
+                    && attrs.quality_efficiency.is_some()
+                {
                     return false;
                 }
 
@@ -358,10 +361,10 @@ impl<'a> CraftState<'a> {
         }
 
         // bonuses should add up to 1.0
-        let progress_bonus = 0.40;
-        let quality_bonus = 0.50;
-        let durability_bonus = 0.05;
-        let cp_bonus = 0.05;
+        let progress_bonus = 0.35;
+        let quality_bonus = 0.45;
+        let durability_bonus = 0.10;
+        let cp_bonus = 0.10;
 
         let progress_score = apply(
             progress_bonus,
