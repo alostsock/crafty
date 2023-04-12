@@ -43,7 +43,9 @@ impl CraftContext {
         for action in Action::ACTIONS {
             let attrs = action.attributes();
             if player.job_level >= attrs.level && player.cp >= attrs.cp_cost.unwrap_or(0) {
-                if action == &Action::TrainedEye && player.job_level - recipe.job_level < 10 {
+                if action == &Action::TrainedEye
+                    && player.job_level.saturating_sub(recipe.job_level) < 10
+                {
                     continue;
                 }
 

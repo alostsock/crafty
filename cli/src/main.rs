@@ -201,7 +201,7 @@ fn validate_args(args: &Args) -> Result<()> {
     is_between(args.job_level, 1, 90, "job level")?;
     is_between(args.craftsmanship, 1, 5000, "craftsmanship")?;
     is_between(args.control, 1, 5000, "control")?;
-    is_between(args.cp, 1, 700, "cp")?;
+    is_between(args.cp, 1, 2000, "cp")?;
     is_between(args.search_iterations, 100, 10_000_000, "iteration count")?;
     is_between(args.search_pool_size, 1, 10_000, "search pool")?;
     is_between(args.steps, 5, 50, "max steps")?;
