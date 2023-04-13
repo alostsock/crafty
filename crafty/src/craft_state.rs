@@ -224,13 +224,8 @@ impl<'a> CraftState<'a> {
                 Observe => !self.observe,
                 // only allow focused skills if observing
                 FocusedSynthesis | FocusedTouch => self.observe,
-                // don't allow Groundwork if
-                //  1) waste not isn't active, or
-                //  2) it's downgraded
+                // don't allow Groundwork if it's downgraded
                 Groundwork | GroundworkTraited => {
-                    if self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0 {
-                        return false;
-                    }
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
