@@ -124,7 +124,6 @@ create_actions!(
         cp 56,
         effect |state| {
             state.buffs.waste_not = 4;
-            state.buffs.waste_not_ii = 0;
         },
     [Veneration, "Veneration"]
         level 15,
@@ -163,8 +162,7 @@ create_actions!(
         level 47,
         cp 98,
         effect |state| {
-            state.buffs.waste_not = 0;
-            state.buffs.waste_not_ii = 8;
+            state.buffs.waste_not = 8;
         },
     [ByregotsBlessing, "Byregot's Blessing"]
         level 50,
@@ -310,7 +308,7 @@ impl Action {
     }
 
     pub fn calc_durability_cost(state: &CraftState, base_cost: i8) -> i8 {
-        if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
+        if state.buffs.waste_not > 0 {
             return base_cost / 2;
         }
         base_cost
