@@ -19,6 +19,7 @@ pub enum CraftResult {
 pub struct Buffs {
     pub inner_quiet: u8,
     pub waste_not: u8,
+    pub waste_not_ii: u8,
     pub manipulation: u8,
     pub great_strides: u8,
     pub innovation: u8,
@@ -36,6 +37,7 @@ impl Buffs {
     pub fn decrement_timers(&mut self) {
         // don't decrement inner quiet
         self.waste_not = self.waste_not.saturating_sub(1);
+        self.waste_not_ii = self.waste_not_ii.saturating_sub(1);
         self.manipulation = self.manipulation.saturating_sub(1);
         self.great_strides = self.great_strides.saturating_sub(1);
         self.innovation = self.innovation.saturating_sub(1);
@@ -210,7 +212,13 @@ impl<'a> CraftState<'a> {
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
-                PrudentSynthesis | PrudentTouch => self.buffs.waste_not == 0,
+                // use of Waste Not should be efficient
+                PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII if strict => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
+                PrudentSynthesis | PrudentTouch => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
                 // don't allow Observe if observing; should also have enough CP to follow up
                 Observe if strict => !self.observe && self.cp >= 5,
                 Observe => !self.observe,
@@ -228,8 +236,6 @@ impl<'a> CraftState<'a> {
                 Veneration | Innovation if strict => {
                     self.buffs.veneration <= 1 && self.buffs.innovation <= 1
                 }
-                // use of Waste Not should be efficient
-                WasteNot | WasteNotII if strict => self.buffs.waste_not == 0,
                 // make sure we've exhaustively handled every action; don't use a wildcard here
                 AdvancedTouch
                 | BasicSynthesis
