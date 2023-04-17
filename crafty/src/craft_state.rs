@@ -226,7 +226,7 @@ impl<'a> CraftState<'a> {
                 Manipulation if strict => self.buffs.manipulation == 0,
                 GreatStrides if strict => self.buffs.great_strides == 0,
                 Veneration | Innovation if strict => {
-                    self.buffs.veneration == 0 && self.buffs.innovation == 0
+                    self.buffs.veneration <= 1 && self.buffs.innovation <= 1
                 }
                 // use of Waste Not should be efficient
                 WasteNot | WasteNotII if strict => self.buffs.waste_not == 0,
