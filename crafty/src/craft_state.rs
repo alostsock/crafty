@@ -350,10 +350,20 @@ impl<'a> CraftState<'a> {
         }
 
         // bonuses should add up to 1.0
-        let progress_bonus = 0.35;
-        let quality_bonus = 0.45;
-        let durability_bonus = 0.10;
-        let cp_bonus = 0.10;
+
+        // The search only expands on finished states (100% progress) so you may
+        // be thinking, "Why do we need to reward progress if we don't score
+        // unfinished craft states at all?". Two reasons:
+        // 1) Conceptually, I think the progress bonus is still useful as a
+        //    weight against the other bonuses
+        // 2) Practically, it ensures the score of a state is sufficiently above
+        //    zero without having to rely solely on durability, cp, and step
+        //    metrics, which by themselves could provide a bad signal.
+        let progress_bonus = 0.20;
+        let quality_bonus = 0.65;
+        let durability_bonus = 0.05;
+        let cp_bonus = 0.05;
+        let fewer_steps_bonus = 0.05;
 
         let progress_score = apply(
             progress_bonus,
@@ -375,7 +385,10 @@ impl<'a> CraftState<'a> {
 
         let cp_score = apply(cp_bonus, self.cp as f32, self.context.cp_max as f32);
 
-        progress_score + quality_score + durability_score + cp_score
+        let fewer_steps_score =
+            fewer_steps_bonus * (1.0_f32 - f32::from(self.step) / f32::from(self.context.step_max));
+
+        progress_score + quality_score + durability_score + cp_score + fewer_steps_score
     }
 
     pub fn check_result(&self) -> Option<CraftResult> {
