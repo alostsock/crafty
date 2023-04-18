@@ -13,6 +13,7 @@ pub struct CraftContext {
     pub quality_target: u32,
     pub durability_max: i8,
     pub cp_max: u32,
+    pub is_expert: bool,
     pub action_pool: ActionSet,
 }
 
@@ -81,6 +82,7 @@ impl CraftContext {
             quality_target: recipe.quality,
             durability_max: recipe.durability,
             cp_max: player.cp,
+            is_expert: recipe.is_expert,
             action_pool: Self::determine_action_pool(player, recipe),
         }
     }

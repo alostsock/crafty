@@ -160,7 +160,10 @@ impl<'a> CraftState<'a> {
 
             if strict {
                 // always used Trained Eye if it's available
-                if self.step == 1 && self.context.action_pool.contains(TrainedEye) {
+                if self.step == 1
+                    && !self.context.is_expert
+                    && self.context.action_pool.contains(TrainedEye)
+                {
                     return action == &TrainedEye;
                 }
 
@@ -208,7 +211,8 @@ impl<'a> CraftState<'a> {
             }
 
             match action {
-                MuscleMemory | Reflect | TrainedEye => self.step == 1,
+                MuscleMemory | Reflect => self.step == 1,
+                TrainedEye => self.step == 1 && !self.context.is_expert,
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
