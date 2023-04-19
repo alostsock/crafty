@@ -14,7 +14,7 @@ mod tree;
 
 pub use action::Action;
 use action_set::ActionSet;
-pub use craft_context::CraftContext;
+pub use craft_context::{CraftContext, CraftOptions};
 pub use craft_state::{Buffs, CraftResult, CraftState};
 pub use player::Player;
 pub use recipe::Recipe;

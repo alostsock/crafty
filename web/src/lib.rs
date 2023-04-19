@@ -1,6 +1,6 @@
 use crafty::{
-    Action, CraftContext, CraftResult, CraftState as InternalCraftState, Player, Recipe,
-    SearchOptions, Simulator,
+    Action, CraftContext, CraftOptions, CraftResult, CraftState as InternalCraftState, Player,
+    Recipe, SearchOptions, Simulator,
 };
 use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
@@ -72,6 +72,18 @@ enum CompletionReason {
     InvalidActionFailure,
 }
 
+impl CompletionReason {
+    fn from_craft_result(result: Option<CraftResult>) -> Option<CompletionReason> {
+        match result {
+            Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
+            Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
+            Some(CraftResult::MaxStepsFailure) => Some(CompletionReason::MaxStepsFailure),
+            Some(CraftResult::InvalidActionFailure) => Some(CompletionReason::InvalidActionFailure),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Serialize, TsType)]
 struct SimulatorResult {
     craft_state: CraftState,
@@ -99,19 +111,17 @@ pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> J
         .map(|a| Action::from_str(a).unwrap())
         .collect();
 
-    let context = CraftContext::new(&player, &recipe, 50);
+    let craft_options = CraftOptions {
+        max_steps: 50,
+        ..Default::default()
+    };
+    let context = CraftContext::new(&player, &recipe, craft_options);
 
     let (end_state, result) = Simulator::simulate(&context, actions);
 
     let sim_result = SimulatorResult {
         craft_state: CraftState::from_internal(&end_state),
-        completion_reason: match result {
-            Some(CraftResult::Finished(_)) => Some(CompletionReason::Finished),
-            Some(CraftResult::DurabilityFailure) => Some(CompletionReason::DurabilityFailure),
-            Some(CraftResult::MaxStepsFailure) => Some(CompletionReason::MaxStepsFailure),
-            Some(CraftResult::InvalidActionFailure) => Some(CompletionReason::InvalidActionFailure),
-            _ => None,
-        },
+        completion_reason: CompletionReason::from_craft_result(result),
     };
 
     to_js_value(&sim_result).unwrap().unchecked_into()
@@ -123,8 +133,8 @@ export function searchStepwise(
     recipe: Recipe,
     player: Player,
     action_history: Action[],
-    max_steps: number,
-    options: SearchOptions,
+    craft_options: CraftOptions,
+    search_options: SearchOptions,
     action_callback: (action: Action) => void,
 ): Action[];
 "#;
@@ -134,8 +144,8 @@ pub fn search_stepwise(
     recipe: JsValue,
     player: JsValue,
     action_history: JsValue,
-    max_steps: u8,
-    options: JsValue,
+    craft_options: JsValue,
+    search_options: JsValue,
     action_callback: js_sys::Function,
 ) -> JsValue {
     console_error_panic_hook::set_once();
@@ -147,7 +157,8 @@ pub fn search_stepwise(
         .iter()
         .map(|a| Action::from_str(a).unwrap())
         .collect();
-    let options: SearchOptions = from_js_value(options).unwrap();
+    let craft_options: CraftOptions = from_js_value(craft_options).unwrap();
+    let search_options: SearchOptions = from_js_value(search_options).unwrap();
 
     let callback = |action: Action| {
         let null = JsValue::null();
@@ -156,9 +167,9 @@ pub fn search_stepwise(
     };
 
     let (actions, _) = Simulator::search_stepwise(
-        &CraftContext::new(&player, &recipe, max_steps),
+        &CraftContext::new(&player, &recipe, craft_options),
         action_history,
-        options,
+        search_options,
         Some(&callback),
     );
 

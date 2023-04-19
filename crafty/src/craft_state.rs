@@ -98,7 +98,7 @@ impl<'a> CraftState<'a> {
             context,
             step: 1,
             progress: 0,
-            quality: 0,
+            quality: context.starting_quality,
             durability: context.durability_max,
             cp: context.cp_max,
             observe: false,

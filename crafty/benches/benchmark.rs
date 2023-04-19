@@ -1,4 +1,4 @@
-use crafty::{Action, CraftContext, Player, Recipe, SearchOptions, Simulator};
+use crafty::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulator};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
@@ -20,7 +20,11 @@ fn setup_sim(rng_seed: Option<u32>) -> (CraftContext, SearchOptions) {
         conditions_flag: 15,
     };
     let player = Player::new(90, 3304, 3374, 575);
-    let context = CraftContext::new(&player, &recipe, 15);
+    let craft_options = CraftOptions {
+        max_steps: 15,
+        ..Default::default()
+    };
+    let context = CraftContext::new(&player, &recipe, craft_options);
     let options = SearchOptions {
         iterations: 50_000,
         rng_seed,

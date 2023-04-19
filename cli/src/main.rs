@@ -4,7 +4,8 @@
 use anyhow::{anyhow, Context, Error, Result};
 use clap::Parser;
 use crafty::{
-    data, Action, CraftContext, CraftResult, CraftState, Player, Recipe, SearchOptions, Simulator,
+    data, Action, CraftContext, CraftOptions, CraftResult, CraftState, Player, Recipe,
+    SearchOptions, Simulator,
 };
 use dialoguer::{
     console::{Style, StyledObject},
@@ -111,7 +112,11 @@ fn main() -> Result<()> {
         exploration_constant: Some(args.exploration_constant),
     };
 
-    let context = CraftContext::new(player, recipe, args.steps);
+    let craft_options = CraftOptions {
+        max_steps: args.steps,
+        ..Default::default()
+    };
+    let context = CraftContext::new(player, recipe, craft_options);
     let mut action_history: Vec<Action> = vec![];
     loop {
         let (state, result) = Simulator::simulate(&context, action_history.clone());

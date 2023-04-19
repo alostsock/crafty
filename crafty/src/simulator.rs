@@ -352,7 +352,7 @@ impl<'a> Simulator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Action, CraftContext, Player, Recipe, SearchOptions, Simulator};
+    use crate::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulator};
     use Action::*;
 
     fn setup_1() -> (CraftContext, SearchOptions) {
@@ -371,7 +371,11 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3304, 3374, 575);
-        let context = CraftContext::new(&player, &recipe, 25);
+        let craft_options = CraftOptions {
+            max_steps: 25,
+            ..Default::default()
+        };
+        let context = CraftContext::new(&player, &recipe, craft_options);
         let options = SearchOptions {
             rng_seed: Some(0),
             ..Default::default()
@@ -395,7 +399,11 @@ mod tests {
             conditions_flag: 15,
         };
         let player = Player::new(90, 3290, 3541, 649);
-        let context = CraftContext::new(&player, &recipe, 25);
+        let craft_options = CraftOptions {
+            max_steps: 25,
+            ..Default::default()
+        };
+        let context = CraftContext::new(&player, &recipe, craft_options);
         let options = SearchOptions {
             rng_seed: Some(123),
             ..Default::default()

@@ -1,4 +1,6 @@
 use crate::{data, Action, ActionSet, Player, Recipe};
+use serde::Deserialize;
+use ts_type::{wasm_bindgen, TsType};
 
 #[derive(Debug, Clone)]
 pub struct CraftContext {
@@ -10,11 +12,19 @@ pub struct CraftContext {
     pub quality_factor: f32,
     pub step_max: u8,
     pub progress_target: u32,
+    pub starting_quality: u32,
     pub quality_target: u32,
     pub durability_max: i8,
     pub cp_max: u32,
     pub is_expert: bool,
     pub action_pool: ActionSet,
+}
+
+#[derive(Clone, Copy, Default, Deserialize, TsType)]
+pub struct CraftOptions {
+    pub max_steps: u8,
+    pub starting_quality: Option<u32>,
+    pub quality_target: Option<u32>,
 }
 
 impl CraftContext {
@@ -70,16 +80,17 @@ impl CraftContext {
         pool
     }
 
-    pub fn new(player: &Player, recipe: &Recipe, max_steps: u8) -> Self {
+    pub fn new(player: &Player, recipe: &Recipe, options: CraftOptions) -> Self {
         let (progress_factor, quality_factor) = Self::factors(player, recipe);
         Self {
             player_job_level: player.job_level,
             recipe_job_level: recipe.job_level,
             progress_factor,
             quality_factor,
-            step_max: max_steps,
+            step_max: options.max_steps,
             progress_target: recipe.progress,
-            quality_target: recipe.quality,
+            starting_quality: options.starting_quality.unwrap_or(0),
+            quality_target: options.quality_target.unwrap_or(recipe.quality),
             durability_max: recipe.durability,
             cp_max: player.cp,
             is_expert: recipe.is_expert,
