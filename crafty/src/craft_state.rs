@@ -161,6 +161,7 @@ impl<'a> CraftState<'a> {
             if strict {
                 // always used Trained Eye if it's available
                 if self.step == 1
+                    && self.context.quality_target > 0
                     && !self.context.is_expert
                     && self.context.action_pool.contains(TrainedEye)
                 {
@@ -194,7 +195,7 @@ impl<'a> CraftState<'a> {
                         self.progress + progress_increase >= self.context.progress_target;
 
                     if would_finish {
-                        // don't allow finishing the craft if there is significant progress remaining
+                        // don't allow finishing the craft if there is significant quality remaining
                         if self.quality < self.context.quality_target / 5 {
                             return false;
                         }
@@ -401,9 +402,21 @@ impl<'a> CraftState<'a> {
         progress_score + quality_score + durability_score + cp_score + fewer_steps_score
     }
 
+    /// Evaluates the craft based on step count since quality doesn't matter.
+    /// Returns a value from 0 to 1.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn score_no_quality(&self) -> f32 {
+        1.0_f32 - f32::from(self.step) / f32::from(self.context.step_max)
+    }
+
     pub fn check_result(&self) -> Option<CraftResult> {
         if self.progress >= self.context.progress_target {
-            Some(CraftResult::Finished(self.score()))
+            let score = if self.context.quality_target > 0 {
+                self.score()
+            } else {
+                self.score_no_quality()
+            };
+            Some(CraftResult::Finished(score))
         } else if self.durability <= 0 {
             Some(CraftResult::DurabilityFailure)
         } else if self.step >= self.context.step_max {
