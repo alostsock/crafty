@@ -20,7 +20,7 @@ pub struct CraftContext {
     pub action_pool: ActionSet,
 }
 
-#[derive(Clone, Copy, Default, Deserialize, TsType)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, TsType)]
 pub struct CraftOptions {
     pub max_steps: u8,
     pub starting_quality: Option<u32>,

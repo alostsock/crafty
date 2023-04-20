@@ -95,12 +95,18 @@ const TS_TYPE_SIMULATE_ACTIONS: &'static str = r#"
 export function simulateActions(
     recipe: Recipe,
     player: Player,
-    actions: Action[]
+    actions: Action[],
+    craft_options: CraftOptions,
 ): SimulatorResult;
 "#;
 
 #[wasm_bindgen(js_name = simulateActions, skip_typescript)]
-pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> JsValue {
+pub fn simulate_actions(
+    recipe: JsValue,
+    player: JsValue,
+    actions: JsValue,
+    craft_options: JsValue,
+) -> JsValue {
     console_error_panic_hook::set_once();
 
     let recipe: Recipe = from_js_value(recipe).unwrap();
@@ -110,13 +116,9 @@ pub fn simulate_actions(recipe: JsValue, player: JsValue, actions: JsValue) -> J
         .iter()
         .map(|a| Action::from_str(a).unwrap())
         .collect();
+    let craft_options: CraftOptions = from_js_value(craft_options).unwrap();
 
-    let craft_options = CraftOptions {
-        max_steps: 50,
-        ..Default::default()
-    };
     let context = CraftContext::new(&player, &recipe, craft_options);
-
     let (end_state, result) = Simulator::simulate(&context, actions);
 
     let sim_result = SimulatorResult {
