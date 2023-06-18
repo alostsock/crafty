@@ -12,7 +12,7 @@ use syn::{parse_macro_input, DeriveInput};
 pub fn ts_type_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let ident = input.ident.clone();
+    let ident = &input.ident;
 
     let cx = Ctxt::new();
     let container =
@@ -26,7 +26,7 @@ pub fn ts_type_derive(input: TokenStream) -> TokenStream {
 
     let ts_tokens: QuoteTokens = match container.data {
         ast::Data::Enum(variants) => {
-            if let Some(tokens) = process_enum(&ident, &variants) {
+            if let Some(tokens) = process_enum(ident, &variants) {
                 tokens
             } else {
                 return TokenStream::from(quote! {
@@ -34,7 +34,7 @@ pub fn ts_type_derive(input: TokenStream) -> TokenStream {
                 });
             }
         }
-        ast::Data::Struct(Struct, fields) => process_struct(&ident, &fields),
+        ast::Data::Struct(Struct, fields) => process_struct(ident, &fields),
         ast::Data::Struct(Tuple, _)
         | ast::Data::Struct(Newtype, _)
         | ast::Data::Struct(Unit, _) => {
