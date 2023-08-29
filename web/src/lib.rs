@@ -88,6 +88,7 @@ impl CompletionReason {
 struct SimulatorResult {
     craft_state: CraftState,
     completion_reason: Option<CompletionReason>,
+    score: f32,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -124,6 +125,7 @@ pub fn simulate_actions(
     let sim_result = SimulatorResult {
         craft_state: CraftState::from_internal(&end_state),
         completion_reason: CompletionReason::from_craft_result(result),
+        score: end_state.score(),
     };
 
     to_js_value(&sim_result).unwrap().unchecked_into()
