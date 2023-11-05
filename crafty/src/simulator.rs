@@ -521,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn rotation_should_not_panic_2() {
+    fn floating_point_error() {
         let actions = vec![
             MuscleMemory,
             Manipulation,
@@ -543,7 +543,7 @@ mod tests {
             ByregotsBlessing,
         ];
         let (context, _) = setup_2();
-        Simulator::simulate(&context, actions);
+        assert_craft(&context, actions, 3549, 10932, 5, 7);
     }
 
     #[test]
