@@ -19,12 +19,12 @@ mod tests {
                 $enum_or_struct_name::ts_type()
                     .split_whitespace()
                     .collect::<Vec<_>>()
-                    .join(" "),
+                    .join(""),
                 $quote_expression
                     .to_string()
                     .split_whitespace()
                     .collect::<Vec<_>>()
-                    .join(" ")
+                    .join("")
             );
         };
     }
