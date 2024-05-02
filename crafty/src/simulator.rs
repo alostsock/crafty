@@ -143,7 +143,7 @@ impl<'a> Simulator<'a> {
     }
 
     /// Calculate the UCB1 score for a node
-    fn eval(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
+    fn ucb1(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
         let w = self.max_score_weighting_constant;
         let c = self.exploration_constant;
 
@@ -173,8 +173,8 @@ impl<'a> Simulator<'a> {
                 .children
                 .iter()
                 .max_by(|&a, &b| {
-                    let a_score = self.eval(&self.tree.get(*a).state, &selected_node.state);
-                    let b_score = self.eval(&self.tree.get(*b).state, &selected_node.state);
+                    let a_score = self.ucb1(&self.tree.get(*a).state, &selected_node.state);
+                    let b_score = self.ucb1(&self.tree.get(*b).state, &selected_node.state);
                     a_score.partial_cmp(&b_score).unwrap()
                 })
                 .unwrap();
