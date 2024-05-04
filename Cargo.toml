@@ -1,10 +1,6 @@
 [workspace]
-members = [
-  "crafty",
-  "cli",
-  "web",
-  "ts_type",
-]
+members = ["crafty", "cli", "web", "ts_type"]
+resolver = "2"
 
 [profile.release]
 lto = "fat"
