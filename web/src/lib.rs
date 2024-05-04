@@ -1,6 +1,6 @@
 use crafty::{
     Action, CraftContext, CraftOptions, CraftResult, CraftState as InternalCraftState, Player,
-    Recipe, SearchOptions, Simulator,
+    Recipe, SearchOptions, Simulation,
 };
 use serde::Serialize;
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
@@ -120,7 +120,7 @@ pub fn simulate_actions(
     let craft_options: CraftOptions = from_js_value(craft_options).unwrap();
 
     let context = CraftContext::new(&player, &recipe, craft_options);
-    let (end_state, result) = Simulator::simulate(&context, actions);
+    let (end_state, result) = Simulation::simulate(&context, actions);
 
     let sim_result = SimulatorResult {
         craft_state: CraftState::from_internal(&end_state),
@@ -170,7 +170,7 @@ pub fn search_stepwise(
         action_callback.call1(&null, &action_str).unwrap();
     };
 
-    let (actions, _) = Simulator::search_stepwise(
+    let (actions, _) = Simulation::search_stepwise(
         &CraftContext::new(&player, &recipe, craft_options),
         action_history,
         search_options,

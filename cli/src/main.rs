@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Error, Result};
 use clap::Parser;
 use crafty::{
     data, Action, CraftContext, CraftOptions, CraftResult, CraftState, Player, Recipe,
-    SearchOptions, Simulator,
+    SearchOptions, Simulation,
 };
 use dialoguer::{
     console::{Style, StyledObject},
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
     let context = CraftContext::new(player, recipe, craft_options);
     let mut action_history: Vec<Action> = vec![];
     loop {
-        let (state, result) = Simulator::simulate(&context, action_history.clone());
+        let (state, result) = Simulation::simulate(&context, action_history.clone());
         match result {
             None => {
                 print_state(&state);
@@ -158,14 +158,14 @@ fn main() -> Result<()> {
             let (actions, result_state) = (0..args.search_pool_size)
                 .into_par_iter()
                 .map(|_| match args.search_mode {
-                    SearchMode::Stepwise => Simulator::search_stepwise(
+                    SearchMode::Stepwise => Simulation::search_stepwise(
                         &context,
                         action_history.clone(),
                         search_options,
                         None,
                     ),
                     SearchMode::Oneshot => {
-                        Simulator::search_oneshot(&context, action_history.clone(), search_options)
+                        Simulation::search_oneshot(&context, action_history.clone(), search_options)
                     }
                 })
                 .max_by(|(_, a), (_, b)| a.max_score.partial_cmp(&b.max_score).unwrap())

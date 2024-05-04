@@ -33,7 +33,7 @@ impl Default for SearchOptions {
 }
 
 #[derive(Debug)]
-pub struct Simulator<'a> {
+pub struct Simulation<'a> {
     tree: Arena<CraftState<'a>>,
 
     // from SearchOptions
@@ -48,7 +48,7 @@ pub struct Simulator<'a> {
     dead_ends_selected: u64,
 }
 
-impl<'a> Simulator<'a> {
+impl<'a> Simulation<'a> {
     fn from_state(state: CraftState<'a>, options: SearchOptions) -> Self {
         let defaults = SearchOptions::default();
         let rng_seed = options.rng_seed.or(defaults.rng_seed).unwrap();
@@ -352,7 +352,7 @@ impl<'a> Simulator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulator};
+    use crate::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulation};
     use Action::*;
 
     fn setup_1() -> (CraftContext, SearchOptions) {
@@ -419,7 +419,7 @@ mod tests {
         durability: i8,
         cp: u32,
     ) {
-        let (end_state, _) = Simulator::simulate(context, actions);
+        let (end_state, _) = Simulation::simulate(context, actions);
         assert_eq!(end_state.progress, progress);
         assert_eq!(end_state.quality, quality);
         assert_eq!(end_state.durability, durability);
@@ -491,7 +491,7 @@ mod tests {
             PreparatoryTouch,
         ];
         let (context, _) = setup_1();
-        let (end_state, _) = Simulator::simulate(&context, actions);
+        let (end_state, _) = Simulation::simulate(&context, actions);
         // 10 stacks of IQ
         assert_eq!(10, end_state.buffs.inner_quiet);
         // should proc Trained Finesse
@@ -517,7 +517,7 @@ mod tests {
             GroundworkTraited,
         ];
         let (context, _) = setup_1();
-        Simulator::simulate(&context, actions);
+        Simulation::simulate(&context, actions);
     }
 
     #[test]
@@ -549,6 +549,6 @@ mod tests {
     #[test]
     fn search_should_not_panic() {
         let (context, options) = setup_2();
-        Simulator::search_oneshot(&context, vec![], options);
+        Simulation::search_oneshot(&context, vec![], options);
     }
 }

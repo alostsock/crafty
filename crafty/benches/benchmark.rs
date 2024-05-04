@@ -1,4 +1,4 @@
-use crafty::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulator};
+use crafty::{Action, CraftContext, CraftOptions, Player, Recipe, SearchOptions, Simulation};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use std::time::Duration;
@@ -38,7 +38,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         b.iter_batched(
             || setup_sim(None),
             |(context, _)| {
-                Simulator::simulate(&context, black_box(ROTATION_1.to_vec()));
+                Simulation::simulate(&context, black_box(ROTATION_1.to_vec()));
             },
             BatchSize::SmallInput,
         )
@@ -53,7 +53,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             b.iter_batched(
                 || setup_sim(Some(seed)),
                 |(context, options)| {
-                    Simulator::search_oneshot(&context, black_box(vec![]), options);
+                    Simulation::search_oneshot(&context, black_box(vec![]), options);
                 },
                 BatchSize::SmallInput,
             )

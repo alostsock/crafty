@@ -12,11 +12,11 @@ impl ActionSet {
         1u32 << action.index()
     }
 
-    pub fn set_bit(&mut self, bit: u32) {
+    fn set_bit(&mut self, bit: u32) {
         self.0 |= bit;
     }
 
-    pub fn unset_bit(&mut self, bit: u32) {
+    fn unset_bit(&mut self, bit: u32) {
         self.0 &= !bit;
     }
 

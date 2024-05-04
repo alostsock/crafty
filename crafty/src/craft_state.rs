@@ -93,7 +93,7 @@ impl<'a> fmt::Display for CraftState<'a> {
 }
 
 impl<'a> CraftState<'a> {
-    pub fn _new(context: &'a CraftContext) -> Self {
+    fn _new(context: &'a CraftContext) -> Self {
         Self {
             context,
             step: 1,
