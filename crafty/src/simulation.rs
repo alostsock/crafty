@@ -168,6 +168,8 @@ impl<'a> Simulation<'a> {
                 break;
             }
 
+            let exploration_scores = selected_node.children.iter().map()
+
             // select the node with the highest score
             selected_index = *selected_node
                 .children
@@ -208,30 +210,18 @@ impl<'a> Simulation<'a> {
             current_state = current_state.execute_strict(&random_action);
         };
 
-        // store the result if a max score was reached
-        match result {
-            CraftResult::Finished(score)
-                if score >= self.score_storage_threshold
-                    && score >= self.tree.nodes[0].state.max_score =>
-            {
-                let (terminal_index, _) =
-                    self.execute_actions_strict(expanded_index, action_history);
-                (terminal_index, result)
-            }
-            _ => (expanded_index, result),
-        }
+        (expanded_index, result)
     }
 
     /// From a starting node, follow parent nodes back to the root node, updating
     /// statistics for each node along the way.
-    fn backpropagate(&mut self, start_index: usize, target_index: usize, score: f32) {
+    fn backpropagate(&mut self, start_index: usize, target_index: usize, reward: [f32; 4]) {
         let mut current_index = start_index;
         loop {
             // Mutate current node stats
             let current_node = self.tree.get_mut(current_index);
-            current_node.state.visits += 1.0;
-            current_node.state.score_sum += score;
-            current_node.state.max_score = current_node.state.max_score.max(score);
+            current_node.state.visits += 1;
+            current_node.state.reward_sum.iter_mut().zip(reward).for_each(|(sum, r)| *sum += r);
 
             if current_index == target_index {
                 break;
@@ -251,11 +241,11 @@ impl<'a> Simulation<'a> {
                 self.dead_ends_selected += 1;
             }
 
-            let score = match result {
-                CraftResult::Finished(s) => s,
-                _ => 0.0,
+            let reward = match result {
+                CraftResult::Finished(r) => r,
+                _ => [0.0; 4],
             };
-            self.backpropagate(end_index, start_index, score);
+            self.backpropagate(end_index, start_index, reward);
         }
         self
     }

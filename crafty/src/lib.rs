@@ -11,6 +11,7 @@ pub mod data;
 mod player;
 mod simulation;
 mod tree;
+mod tri_objective_pareto_set;
 
 pub use action::Action;
 use action_set::ActionSet;
