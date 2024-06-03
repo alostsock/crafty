@@ -3,10 +3,12 @@ use serde::Serialize;
 use std::{cmp, fmt};
 use ts_type::{wasm_bindgen, TsType};
 
+pub type Reward = [f32; 3];
+
 #[derive(Debug)]
 pub enum CraftResult {
     /// The craft reached 100% progress. Includes the score of the `CraftState`.
-    Finished([f32; 4]),
+    Finished(Reward),
     /// No durability remains.
     DurabilityFailure,
     /// The step limit was reached.
@@ -66,8 +68,10 @@ pub struct CraftState<'a> {
 
     /// The action that led to this state
     pub action: Option<Action>,
-    /// Sum of scores from this node onward
-    pub reward_sum: [f32; 4],
+    /// Max score reachable from this node, for obtaining a quick solution
+    pub max_score: f32,
+    /// Reward used for Pareto MCTS
+    pub reward_sum: Reward,
     /// Number of times this node has been visited
     pub visits: usize,
     pub available_moves: ActionSet,
@@ -103,7 +107,8 @@ impl<'a> CraftState<'a> {
             next_combo_action: None,
             buffs: Buffs::new(),
             action: None,
-            reward_sum: [0.0; 4],
+            max_score: 0.0,
+            reward_sum: [0.0; 3],
             visits: 0,
             available_moves: ActionSet::new(),
         }
@@ -269,7 +274,7 @@ impl<'a> CraftState<'a> {
             step: self.step + 1,
             buffs: self.buffs.clone(),
             action: Some(*action),
-            reward_sum: [0.0; 4],
+            reward_sum: [0.0; 3],
             visits: 0,
             available_moves: ActionSet::new(),
             ..*self
@@ -349,22 +354,71 @@ impl<'a> CraftState<'a> {
         state
     }
 
-    /// An evaluation of the craft
-    pub fn reward(&self) -> [f32; 4] {
+    /// An evaluation of the craft. Returns a value from 0 to 1.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn score(&self) -> f32 {
+        fn apply(bonus: f32, value: f32, target: f32) -> f32 {
+            bonus * 1f32.min(value / target)
+        }
+
+        // bonuses should add up to 1.0
+
+        // The search only expands on finished states (100% progress) so you may
+        // be thinking, "Why do we need to reward progress if we don't score
+        // unfinished craft states at all?". Two reasons:
+        // 1) Conceptually, I think the progress bonus is still useful as a
+        //    weight against the other bonuses
+        // 2) Practically, it ensures the score of a state is sufficiently above
+        //    zero without having to rely solely on durability, cp, and step
+        //    metrics, which by themselves could provide a bad signal.
+        let progress_bonus = 0.20;
+        let quality_bonus = 0.65;
+        let durability_bonus = 0.05;
+        let cp_bonus = 0.05;
+        let fewer_steps_bonus = 0.05;
+
+        let progress_score = apply(
+            progress_bonus,
+            self.progress as f32,
+            self.context.progress_target as f32,
+        );
+
+        let quality_score = apply(
+            quality_bonus,
+            self.quality as f32,
+            self.context.quality_target as f32,
+        );
+
+        let durability_score = apply(
+            durability_bonus,
+            f32::from(self.durability),
+            f32::from(self.context.durability_max),
+        );
+
+        let cp_score = apply(cp_bonus, self.cp as f32, self.context.cp_max as f32);
+
+        let fewer_steps_score =
+            fewer_steps_bonus * (1.0_f32 - f32::from(self.step) / f32::from(self.context.step_max));
+
+        progress_score + quality_score + durability_score + cp_score + fewer_steps_score
+    }
+
+    // Reward used in Pareto MCTS
+    pub fn reward(&self) -> Reward {
         [
-            self.progress as f32 / self.context.progress_target as f32,
-            self.quality as f32 / self.context.quality_target as f32,
-            self.durability as f32 / self.context.durability_max as f32,
-            self.cp as f32 / self.context.cp_max as f32,
+            (self.progress as f32 / self.context.progress_target as f32).min(1.0),
+            (self.quality as f32 / self.context.quality_target as f32).min(1.0),
+            // self.durability as f32 / self.context.durability_max as f32,
+            (self.context.cp_max - self.cp) as f32 / self.context.cp_max as f32,
         ]
     }
 
-    pub fn reward_no_quality(&self) -> [f32; 4] {
+    pub fn reward_no_quality(&self) -> Reward {
         [
             self.progress as f32 / self.context.progress_target as f32,
             0.0,
-            self.durability as f32 / self.context.durability_max as f32,
             self.cp as f32 / self.context.cp_max as f32,
+            // self.durability as f32 / self.context.durability_max as f32,
         ]
     }
 

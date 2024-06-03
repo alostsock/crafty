@@ -7,7 +7,6 @@ impl<T> Arena<T> {
     pub fn new(initial_state: T) -> Self {
         let initial_node = Node {
             parent: None,
-            index: 0,
             children: vec![],
             state: initial_state,
         };
@@ -20,7 +19,6 @@ impl<T> Arena<T> {
         let index = self.nodes.len();
         let node = Node {
             parent: Some(parent_index),
-            index,
             children: vec![],
             state,
         };
@@ -41,7 +39,6 @@ impl<T> Arena<T> {
 #[derive(Debug)]
 pub struct Node<T> {
     pub parent: Option<usize>,
-    pub index: usize,
     pub children: Vec<usize>,
     pub state: T,
 }

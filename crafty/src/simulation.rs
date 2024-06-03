@@ -1,4 +1,5 @@
-use crate::{tree::Arena, Action, CraftContext, CraftResult, CraftState};
+use crate::tri_objective_pareto_set::{ParetoItem, TriObjectiveParetoSet};
+use crate::{tree::Arena, Action, CraftContext, CraftResult, CraftState, Reward};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::Deserialize;
 use ts_type::{wasm_bindgen, TsType};
@@ -110,54 +111,8 @@ impl<'a> Simulation<'a> {
         (current_index, current_state.check_result())
     }
 
-    /// Executes a series of actions with strict move pruning enabled.
-    fn execute_actions_strict(
-        &mut self,
-        start_index: usize,
-        actions: Vec<Action>,
-    ) -> (usize, Option<CraftResult>) {
-        let mut current_index = start_index;
-        for action in actions {
-            let current_state = &mut self.tree.get_mut(current_index).state;
-
-            if let Some(result) = current_state.check_result() {
-                return (current_index, Some(result));
-            }
-
-            // the next action must be available to use
-            if current_state.available_moves.contains(action) {
-                current_state.available_moves.unset(action);
-            } else {
-                return (current_index, Some(CraftResult::InvalidActionFailure));
-            }
-
-            let next_state = current_state.execute_strict(&action);
-            let next_index = self.tree.insert(current_index, next_state);
-
-            current_index = next_index;
-        }
-
-        // check state after performing the last action
-        let current_state = &self.tree.get_mut(current_index).state;
-        (current_index, current_state.check_result())
-    }
-
-    /// Calculate the UCB1 score for a node
-    fn ucb1(&self, state: &CraftState, parent_state: &CraftState) -> f32 {
-        let w = self.max_score_weighting_constant;
-        let c = self.exploration_constant;
-
-        let visits = state.visits;
-        let average_score = state.score_sum / visits;
-
-        let exploitation = (1.0 - w) * average_score + w * state.max_score;
-        let exploration = (c * parent_state.visits.ln() / visits).sqrt();
-
-        exploitation + exploration
-    }
-
     /// Traverses the tree to find a good candidate node to expand.
-    fn select(&self, current_index: usize) -> usize {
+    fn select(&mut self, current_index: usize) -> usize {
         let mut selected_index = current_index;
         loop {
             let selected_node = self.tree.get(selected_index);
@@ -168,18 +123,60 @@ impl<'a> Simulation<'a> {
                 break;
             }
 
-            let exploration_scores = selected_node.children.iter().map()
-
-            // select the node with the highest score
-            selected_index = *selected_node
+            let ucb_scores: Vec<_> = selected_node
                 .children
                 .iter()
-                .max_by(|&a, &b| {
-                    let a_score = self.ucb1(&self.tree.get(*a).state, &selected_node.state);
-                    let b_score = self.ucb1(&self.tree.get(*b).state, &selected_node.state);
-                    a_score.partial_cmp(&b_score).unwrap()
+                .map(|&child_index| {
+                    let child_node = self.tree.get(child_index);
+
+                    let exploration: f32 = ((4.0 * (selected_node.state.visits as f32).ln()
+                        + 3.0_f32.ln())
+                        / (2.0 * child_node.state.visits as f32))
+                        .sqrt();
+
+                    let upper_confidence_bound: Reward = {
+                        let mut values = child_node.state.reward_sum.clone();
+                        for value in values.iter_mut() {
+                            let avg_value = 10.0 * *value / child_node.state.visits as f32;
+
+                            // let w = self.max_score_weighting_constant;
+                            // let exploitation =
+                            //     (1.0 - w) * avg_value + w * child_node.state.max_score;
+
+                            *value = exploration + avg_value;
+                        }
+                        values
+                    };
+
+                    ParetoItem::new(child_index, upper_confidence_bound)
                 })
-                .unwrap();
+                .collect();
+
+            // if selected_index == 0 && self.rng.gen_range(0..10000) < 1 {
+            //     dbg!(&selected_node
+            //         .children
+            //         .iter()
+            //         .enumerate()
+            //         .map(|(i, &c)| {
+            //             (
+            //                 &self.tree.get(c).state.action,
+            //                 [
+            //                     ucb_scores[i].x().into_inner(),
+            //                     ucb_scores[i].y().into_inner(),
+            //                     ucb_scores[i].z().into_inner(),
+            //                 ],
+            //             )
+            //         })
+            //         .collect::<Vec<_>>());
+            // }
+
+            let set = TriObjectiveParetoSet::from(ucb_scores);
+            let pareto_front = set.items();
+            if pareto_front.len() == 0 {
+                break;
+            }
+            let random_index = self.rng.gen_range(0..pareto_front.len());
+            selected_index = pareto_front[random_index].index();
         }
         selected_index
     }
@@ -215,13 +212,22 @@ impl<'a> Simulation<'a> {
 
     /// From a starting node, follow parent nodes back to the root node, updating
     /// statistics for each node along the way.
-    fn backpropagate(&mut self, start_index: usize, target_index: usize, reward: [f32; 4]) {
+    fn backpropagate(&mut self, start_index: usize, target_index: usize, reward: Reward) {
+        let score = self.tree.get(start_index).state.score();
+
         let mut current_index = start_index;
         loop {
             // Mutate current node stats
             let current_node = self.tree.get_mut(current_index);
+
             current_node.state.visits += 1;
-            current_node.state.reward_sum.iter_mut().zip(reward).for_each(|(sum, r)| *sum += r);
+            current_node.state.max_score = current_node.state.max_score.max(score);
+            current_node
+                .state
+                .reward_sum
+                .iter_mut()
+                .zip(reward)
+                .for_each(|(sum, r)| *sum += r);
 
             if current_index == target_index {
                 break;
@@ -243,16 +249,14 @@ impl<'a> Simulation<'a> {
 
             let reward = match result {
                 CraftResult::Finished(r) => r,
-                _ => [0.0; 4],
+                _ => [0.0; 3],
             };
             self.backpropagate(end_index, start_index, reward);
         }
         self
     }
 
-    /// Traverses the current tree, following actions that result in the highest
-    /// score to find the best solution. This is a convenient way to extract a
-    /// solution after running `search`.
+    /// Traverses the current tree to extract a solution after running `search`.
     fn solution(&self) -> (Vec<Action>, CraftState<'a>) {
         let mut actions = vec![];
         let mut node = self.tree.get(0);

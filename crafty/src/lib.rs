@@ -1,3 +1,4 @@
+#![feature(btree_cursors)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::return_self_not_must_use)]
@@ -16,7 +17,7 @@ mod tri_objective_pareto_set;
 pub use action::Action;
 use action_set::ActionSet;
 pub use craft_context::{CraftContext, CraftOptions};
-pub use craft_state::{Buffs, CraftResult, CraftState};
+pub use craft_state::{Buffs, CraftResult, CraftState, Reward};
 pub use player::Player;
 pub use recipe::Recipe;
 pub use simulation::{SearchOptions, Simulation};
