@@ -99,9 +99,6 @@ create_actions!(
         quality 100,
         durability 10,
         cp 18,
-        effect |state| {
-            state.next_combo_action = Some(Action::StandardTouch);
-        },
     [MastersMend, "Master's Mend"]
         level 7,
         durability 0,  // indicates that this move is not a buff
@@ -115,9 +112,6 @@ create_actions!(
         level 13,
         durability 0,  // indicates that this move is not a buff
         cp 7,
-        effect |state| {
-            state.observe = true;
-        },
     // TricksOfTheTrade
     [WasteNot, "Waste Not"]
         level 15,
@@ -137,11 +131,6 @@ create_actions!(
         quality 125,
         durability 10,
         cp 32,
-        effect |state| {
-            if state.next_combo_action == Some(Action::StandardTouch) {
-                state.next_combo_action = Some(Action::AdvancedTouch);
-            }
-        },
     [GreatStrides, "Great Strides"]
         level 21,
         cp 32,
@@ -196,19 +185,14 @@ create_actions!(
         quality 100,
         durability 5,
         cp 25,
-    [FocusedSynthesis, "Focused Synthesis"]
-        level 67,
-        progress 200,
-        durability 10,
-        cp 5,
-    [FocusedTouch, "Focused Touch"]
+    [AdvancedTouch, "Advanced Touch"]
         level 68,
         quality 150,
         durability 10,
-        cp 18,
+        cp 46,
     [Reflect, "Reflect"]
         level 69,
-        quality 100,
+        quality 300,
         durability 10,
         cp 6,
     [PreparatoryTouch, "Preparatory Touch"]
@@ -227,7 +211,7 @@ create_actions!(
         quality 100,
         durability 10,
         cp 32,
-    // Intensive Synthesis
+    // IntensiveSynthesis
     [TrainedEye, "Trained Eye"]
         level 80,
         quality 0, // a placeholder to indicate this action *does* affect quality
@@ -238,14 +222,6 @@ create_actions!(
         progress 180,
         durability 10,
         cp 7,
-    [AdvancedTouch, "Advanced Touch"]
-        level 84,
-        quality 150,
-        durability 10,
-        cp 46,
-        effect |state| {
-            state.next_combo_action = None;
-        },
     [GroundworkTraited, "Groundwork"]
         level 86,
         progress 360,
@@ -260,6 +236,37 @@ create_actions!(
         level 90,
         quality 100,
         cp 32,
+    [RefinedTouch, "Refined Touch"]
+        level 92,
+        quality 100,
+        cp 24,
+    [DelicateSynthesisTraited, "Delicate Synthesis"]
+        level 94,
+        progress 150,
+        quality 100,
+        durability 10,
+        cp 32,
+    // DaringTouch
+    [QuickInnovation, "Quick Innovation"]
+        level 96,
+        effect |state| {
+            state.buffs.innovation = 1;
+            state.quick_innovation_available = false;
+        },
+    [ImmaculateMend, "Immaculate Mend"]
+        level 98,
+        durability 0,  // indicates that this move is not a buff
+        cp 112,
+        effect |state| {
+            state.durability = state.context.durability_max;
+        },
+    [TrainedPerfection, "Trained Perfection"]
+        level 100,
+        durability 0,  // indicates that this move is not a buff
+        effect |state| {
+            state.trained_perfection_available = false;
+        },
+
 );
 
 impl Action {
@@ -319,11 +326,14 @@ impl Action {
     }
 
     pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
-        // test for basic touch combo
-        if state.action.is_some() && state.action == state.next_combo_action {
-            return 18;
+        use Action::*;
+
+        match (state.previous_combo_action, state.action) {
+            (Some(BasicTouch), Some(StandardTouch))
+            | (Some(StandardTouch) | Some(Observe), Some(AdvancedTouch)) => 18,
+            (Some(TrainedPerfection), _) => 0,
+            _ => base_cost,
         }
-        base_cost
     }
 
     pub fn macro_text(&self) -> String {

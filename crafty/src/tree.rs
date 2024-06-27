@@ -41,6 +41,7 @@ impl<T> Arena<T> {
 #[derive(Debug)]
 pub struct Node<T> {
     pub parent: Option<usize>,
+    #[allow(dead_code)]
     pub index: usize,
     pub children: Vec<usize>,
     pub state: T,

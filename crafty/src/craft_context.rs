@@ -18,6 +18,9 @@ pub struct CraftContext {
     pub cp_max: u32,
     pub is_expert: bool,
     pub action_pool: ActionSet,
+    pub player_is_specialist: bool,
+    pub use_manipulation: bool,
+    pub use_delineation: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, TsType)]
@@ -25,6 +28,9 @@ pub struct CraftOptions {
     pub max_steps: u8,
     pub starting_quality: Option<u32>,
     pub quality_target: Option<u32>,
+    pub player_is_specialist: bool,
+    pub use_manipulation: bool,
+    pub use_delineation: bool,
 }
 
 impl CraftContext {
@@ -75,6 +81,9 @@ impl CraftContext {
             if pool.contains(GroundworkTraited) && pool.contains(Groundwork) {
                 pool.unset(Groundwork);
             }
+            if pool.contains(DelicateSynthesisTraited) && pool.contains(DelicateSynthesis) {
+                pool.unset(DelicateSynthesis);
+            }
         }
 
         pool
@@ -95,6 +104,9 @@ impl CraftContext {
             cp_max: player.cp,
             is_expert: recipe.is_expert,
             action_pool: Self::determine_action_pool(player, recipe),
+            player_is_specialist: options.player_is_specialist,
+            use_manipulation: options.use_manipulation,
+            use_delineation: options.use_delineation,
         }
     }
 }

@@ -58,8 +58,9 @@ pub struct CraftState<'a> {
     pub durability: i8,
     pub cp: u32,
 
-    pub observe: bool,
-    pub next_combo_action: Option<Action>,
+    pub previous_combo_action: Option<Action>,
+    pub quick_innovation_available: bool,
+    pub trained_perfection_available: bool,
     pub buffs: Buffs,
 
     /// The action that led to this state
@@ -99,8 +100,9 @@ impl<'a> CraftState<'a> {
             quality: context.starting_quality,
             durability: context.durability_max,
             cp: context.cp_max,
-            observe: false,
-            next_combo_action: None,
+            previous_combo_action: None,
+            quick_innovation_available: context.use_delineation,
+            trained_perfection_available: context.player_is_specialist,
             buffs: Buffs::new(),
             action: None,
             score_sum: 0.0,
@@ -166,11 +168,6 @@ impl<'a> CraftState<'a> {
                     return action == &TrainedEye;
                 }
 
-                // only allow Focused moves after Observe
-                if self.observe && action != &FocusedSynthesis && action != &FocusedTouch {
-                    return false;
-                }
-
                 // don't allow quality moves under Muscle Memory for difficult crafts
                 if self.context.recipe_job_level == 90
                     && self.buffs.muscle_memory > 0
@@ -215,6 +212,7 @@ impl<'a> CraftState<'a> {
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
+                TrainedPerfection => self.trained_perfection_available,
                 // use of Waste Not should be efficient
                 PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII if strict => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
@@ -222,23 +220,28 @@ impl<'a> CraftState<'a> {
                 PrudentSynthesis | PrudentTouch => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
                 }
-                // don't allow Observe if observing; should also have enough CP to follow up
-                Observe if strict => !self.observe && self.cp >= 5,
-                Observe => !self.observe,
-                // only allow focused skills if observing
-                FocusedSynthesis | FocusedTouch => self.observe,
+                // don't allow Observe if observing
+                // should also have enough CP to follow up with Advanced Touch (7 + 18 CP)
+                Observe if strict => self.previous_combo_action != Some(Observe) && self.cp >= 25,
+                Observe => self.previous_combo_action != Some(Observe),
                 // don't allow Groundwork if it's downgraded
                 Groundwork | GroundworkTraited => {
                     let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
                     self.durability >= cost
                 }
+                // don't allow Refined Touch without a combo
+                RefinedTouch => self.previous_combo_action == Some(BasicTouch),
                 // don't allow buffs too early
                 MastersMend if strict => self.context.durability_max - self.durability >= 25,
-                Manipulation if strict => self.buffs.manipulation == 0,
+                Manipulation if strict => {
+                    self.context.use_manipulation && self.buffs.manipulation == 0
+                }
+                Manipulation => self.context.use_manipulation,
                 GreatStrides if strict => self.buffs.great_strides == 0,
                 Veneration | Innovation if strict => {
                     self.buffs.veneration <= 1 && self.buffs.innovation <= 1
                 }
+                QuickInnovation => self.quick_innovation_available && self.buffs.innovation == 0,
                 // make sure we've exhaustively handled every action; don't use a wildcard here
                 AdvancedTouch
                 | BasicSynthesis
@@ -247,9 +250,10 @@ impl<'a> CraftState<'a> {
                 | CarefulSynthesis
                 | CarefulSynthesisTraited
                 | DelicateSynthesis
+                | DelicateSynthesisTraited
                 | GreatStrides
                 | Innovation
-                | Manipulation
+                | ImmaculateMend
                 | MastersMend
                 | PreparatoryTouch
                 | StandardTouch
@@ -265,11 +269,15 @@ impl<'a> CraftState<'a> {
 
     // interesting lint, but passing by value apparently results in a 2-3% performance regression?
     #[allow(clippy::trivially_copy_pass_by_ref)]
-    fn _execute(&self, action: &Action) -> Self {
+    fn _execute(&self, &action: &Action) -> Self {
         let mut state = Self {
-            step: self.step + 1,
+            step: if action == Action::QuickInnovation {
+                self.step
+            } else {
+                self.step + 1
+            },
             buffs: self.buffs.clone(),
-            action: Some(*action),
+            action: Some(action),
             score_sum: 0.0,
             max_score: 0.0,
             visits: 0.0,
@@ -295,11 +303,12 @@ impl<'a> CraftState<'a> {
             state.quality += Action::calc_quality_increase(&state, efficiency);
 
             if state.context.player_job_level >= 11 {
-                state.buffs.inner_quiet = match &action {
-                    Action::ByregotsBlessing => 0,
-                    Action::Reflect | Action::PreparatoryTouch => {
+                state.buffs.inner_quiet = match (state.previous_combo_action, action) {
+                    (Some(Action::BasicTouch), Action::RefinedTouch)
+                    | (_, Action::Reflect | Action::PreparatoryTouch) => {
                         cmp::min(state.buffs.inner_quiet + 2, 10)
                     }
+                    (_, Action::ByregotsBlessing) => 0,
                     _ => cmp::min(state.buffs.inner_quiet + 1, 10),
                 };
             }
@@ -319,15 +328,20 @@ impl<'a> CraftState<'a> {
             state.cp -= Action::calc_cp_cost(&state, base_cost);
         }
 
-        state.observe = false;
+        state.previous_combo_action = match (state.previous_combo_action, action) {
+            (Some(Action::BasicTouch), Action::StandardTouch)
+            | (Some(Action::BasicTouch), Action::RefinedTouch)
+            | (_, Action::BasicTouch | Action::Observe | Action::TrainedPerfection) => {
+                Some(action)
+            }
+            _ => None,
+        };
 
-        if state.next_combo_action != Some(*action) {
-            state.next_combo_action = None;
+        if action != Action::QuickInnovation {
+            state.buffs.decrement_timers();
         }
 
-        state.buffs.decrement_timers();
-
-        // Always apply effects last
+        // Always apply buffs last
         if let Some(apply_effect) = effect {
             apply_effect(&mut state);
         }

@@ -37,8 +37,7 @@ struct CraftState {
     durability_max: i8,
     cp: u32,
     cp_max: u32,
-    observe: bool,
-    next_combo_action: Option<Action>,
+    previous_combo_action: Option<Action>,
     buffs: Buffs,
     available_moves: Vec<Action>,
 }
@@ -56,8 +55,7 @@ impl CraftState {
             durability_max: state.context.durability_max,
             cp: state.cp,
             cp_max: state.context.cp_max,
-            observe: state.observe,
-            next_combo_action: state.next_combo_action,
+            previous_combo_action: state.previous_combo_action,
             buffs: state.buffs.clone(),
             available_moves: state.available_moves.to_vec(),
         }

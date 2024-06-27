@@ -373,6 +373,7 @@ mod tests {
         let player = Player::new(90, 3304, 3374, 575);
         let craft_options = CraftOptions {
             max_steps: 25,
+            use_manipulation: true,
             ..Default::default()
         };
         let context = CraftContext::new(&player, &recipe, craft_options);
@@ -401,6 +402,7 @@ mod tests {
         let player = Player::new(90, 3290, 3541, 649);
         let craft_options = CraftOptions {
             max_steps: 25,
+            use_manipulation: true,
             ..Default::default()
         };
         let context = CraftContext::new(&player, &recipe, craft_options);
