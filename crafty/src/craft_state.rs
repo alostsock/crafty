@@ -231,6 +231,11 @@ impl<'a> CraftState<'a> {
                 }
                 // don't allow Refined Touch without a combo
                 RefinedTouch => self.previous_combo_action == Some(BasicTouch),
+                // don't allow Immaculate Mends that are too inefficient
+                ImmaculateMend if strict => {
+                    self.context.durability_max - self.durability > 40
+                        && self.buffs.manipulation == 0
+                }
                 // don't allow buffs too early
                 MastersMend if strict => self.context.durability_max - self.durability >= 25,
                 Manipulation if strict => {
@@ -331,9 +336,7 @@ impl<'a> CraftState<'a> {
         state.previous_combo_action = match (state.previous_combo_action, action) {
             (Some(Action::BasicTouch), Action::StandardTouch)
             | (Some(Action::BasicTouch), Action::RefinedTouch)
-            | (_, Action::BasicTouch | Action::Observe | Action::TrainedPerfection) => {
-                Some(action)
-            }
+            | (_, Action::BasicTouch | Action::Observe | Action::TrainedPerfection) => Some(action),
             _ => None,
         };
 
