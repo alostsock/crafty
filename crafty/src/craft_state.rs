@@ -169,7 +169,7 @@ impl<'a> CraftState<'a> {
                 }
 
                 // don't allow quality moves under Muscle Memory for difficult crafts
-                if self.context.recipe_job_level == 90
+                if self.context.recipe_job_level == self.context.player_job_level
                     && self.buffs.muscle_memory > 0
                     && attrs.quality_efficiency.is_some()
                 {

@@ -203,9 +203,9 @@ fn is_between<T: std::cmp::PartialOrd + std::fmt::Display>(
 }
 
 fn validate_args(args: &Args) -> Result<()> {
-    is_between(args.job_level, 1, 90, "job level")?;
-    is_between(args.craftsmanship, 1, 5000, "craftsmanship")?;
-    is_between(args.control, 1, 5000, "control")?;
+    is_between(args.job_level, 1, 100, "job level")?;
+    is_between(args.craftsmanship, 1, 6000, "craftsmanship")?;
+    is_between(args.control, 1, 6000, "control")?;
     is_between(args.cp, 1, 2000, "cp")?;
     is_between(args.search_iterations, 100, 10_000_000, "iteration count")?;
     is_between(args.search_pool_size, 1, 10_000, "search pool")?;
@@ -254,9 +254,9 @@ where
 
 fn prompt_recipe() -> Result<&'static Recipe> {
     let recipe_job_level: u32 = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("recipe level? (1-90)")
-        .with_initial_text("90")
-        .validate_with(|input: &u32| is_between(*input, 1, 90, "recipe level"))
+        .with_prompt("recipe level? (1-100)")
+        .with_initial_text("100")
+        .validate_with(|input: &u32| is_between(*input, 1, 100, "recipe level"))
         .interact_text()?;
 
     let recipe_options = data::recipes(recipe_job_level);
