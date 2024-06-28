@@ -102,7 +102,7 @@ impl<'a> CraftState<'a> {
             cp: context.cp_max,
             previous_combo_action: None,
             quick_innovation_available: context.use_delineation,
-            trained_perfection_available: context.player_is_specialist,
+            trained_perfection_available: true,
             buffs: Buffs::new(),
             action: None,
             score_sum: 0.0,
@@ -180,6 +180,13 @@ impl<'a> CraftState<'a> {
                 if self.buffs.veneration > 0
                     && attrs.progress_efficiency.is_none()
                     && attrs.quality_efficiency.is_some()
+                {
+                    return false;
+                }
+
+                // don't allow 0 durability moves under Trained Perfection
+                if self.previous_combo_action == Some(TrainedPerfection)
+                    && (attrs.durability_cost.is_none() || attrs.durability_cost.unwrap() == 0)
                 {
                     return false;
                 }
