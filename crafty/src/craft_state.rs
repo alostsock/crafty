@@ -186,8 +186,14 @@ impl<'a> CraftState<'a> {
 
                 // don't allow 0 durability moves under Trained Perfection
                 if self.previous_combo_action == Some(TrainedPerfection)
-                    && (attrs.durability_cost.is_none() || attrs.durability_cost.unwrap() == 0)
+                    && (attrs.durability_cost.is_none()
+                        || Action::calc_durability_cost(self, attrs.durability_cost.unwrap()) < 10)
                 {
+                    return false;
+                }
+
+                // only allow Advanced Touch when Observing
+                if self.previous_combo_action == Some(Observe) && action != &AdvancedTouch {
                     return false;
                 }
 
@@ -240,7 +246,7 @@ impl<'a> CraftState<'a> {
                 RefinedTouch => self.previous_combo_action == Some(BasicTouch),
                 // don't allow Immaculate Mends that are too inefficient
                 ImmaculateMend if strict => {
-                    self.context.durability_max - self.durability > 40
+                    self.context.durability_max - self.durability > 45
                         && self.buffs.manipulation == 0
                 }
                 // don't allow buffs too early
@@ -252,6 +258,11 @@ impl<'a> CraftState<'a> {
                 GreatStrides if strict => self.buffs.great_strides == 0,
                 Veneration | Innovation if strict => {
                     self.buffs.veneration <= 1 && self.buffs.innovation <= 1
+                }
+                QuickInnovation if strict => {
+                    self.quick_innovation_available
+                        && self.buffs.innovation == 0
+                        && self.quality > self.context.quality_target / 3
                 }
                 QuickInnovation => self.quick_innovation_available && self.buffs.innovation == 0,
                 // make sure we've exhaustively handled every action; don't use a wildcard here
