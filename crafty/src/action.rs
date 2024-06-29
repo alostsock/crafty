@@ -319,6 +319,9 @@ impl Action {
     }
 
     pub fn calc_durability_cost(state: &CraftState, base_cost: i8) -> i8 {
+        if state.previous_combo_action == Some(Action::TrainedPerfection) {
+            return 0;
+        }
         if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {
             return base_cost / 2;
         }
@@ -331,7 +334,6 @@ impl Action {
         match (state.previous_combo_action, state.action) {
             (Some(BasicTouch), Some(StandardTouch))
             | (Some(StandardTouch) | Some(Observe), Some(AdvancedTouch)) => 18,
-            (Some(TrainedPerfection), _) => 0,
             _ => base_cost,
         }
     }
