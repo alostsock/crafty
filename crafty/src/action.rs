@@ -239,6 +239,7 @@ create_actions!(
     [RefinedTouch, "Refined Touch"]
         level 92,
         quality 100,
+        durability 10,
         cp 24,
     [DelicateSynthesisTraited, "Delicate Synthesis"]
         level 94,
