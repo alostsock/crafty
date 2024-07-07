@@ -275,17 +275,17 @@ impl Action {
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_precision_loss)]
     pub fn calc_progress_increase(state: &CraftState, efficiency: u32) -> u32 {
-        let base = state.context.base_progress_factor;
+        let base = state.context.base_progress_factor as u64;
 
-        let mut multiplier = 1.0;
+        let mut multiplier: u64 = 100;
         if state.buffs.veneration > 0 {
-            multiplier += 0.5;
+            multiplier += 50;
         }
         if state.buffs.muscle_memory > 0 {
-            multiplier += 1.0;
+            multiplier += 100;
         }
 
-        (base * efficiency as f32 * multiplier / 100.0) as u32
+        (base * efficiency as u64 * multiplier / (100 * 100)) as u32
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -296,27 +296,25 @@ impl Action {
             return state.context.quality_target - state.quality;
         }
 
-        let base = state.context.base_quality_factor;
+        let base = state.context.base_quality_factor as u64;
 
         let efficiency = if state.action == Some(Action::ByregotsBlessing) {
-            100 + u32::from(state.buffs.inner_quiet) * 20
+            100 + u64::from(state.buffs.inner_quiet) * 20
         } else {
-            efficiency
+            efficiency as u64
         };
 
-        let mut modifier = 1.0 + f32::from(state.buffs.inner_quiet) / 10.0;
+        let iq_multiplier = 100 + u64::from(state.buffs.inner_quiet) * 10;
 
-        let mut multiplier = 1.0;
+        let mut multiplier = 100;
         if state.buffs.innovation > 0 {
-            multiplier += 0.5;
+            multiplier += 50;
         }
         if state.buffs.great_strides > 0 {
-            multiplier += 1.0;
+            multiplier += 100;
         }
 
-        modifier *= multiplier;
-
-        (base * efficiency as f32 * modifier / 100.0) as u32
+        (base * efficiency * iq_multiplier * multiplier / (100 * 100 * 100)) as u32
     }
 
     pub fn calc_durability_cost(state: &CraftState, base_cost: i8) -> i8 {

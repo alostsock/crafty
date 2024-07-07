@@ -7,9 +7,9 @@ pub struct CraftContext {
     pub player_job_level: u32,
     pub recipe_job_level: u32,
     /// Multiply by synthesis action efficiency for increase in progress
-    pub base_progress_factor: f32,
+    pub base_progress_factor: u32,
     /// Multiply by touch action efficiency for increase in quality
-    pub base_quality_factor: f32,
+    pub base_quality_factor: u32,
     pub step_max: u8,
     pub progress_target: u32,
     pub starting_quality: u32,
@@ -35,7 +35,7 @@ pub struct CraftOptions {
 
 impl CraftContext {
     #[allow(clippy::cast_precision_loss)]
-    fn base_factors(player: &Player, recipe: &Recipe) -> (f32, f32) {
+    fn base_factors(player: &Player, recipe: &Recipe) -> (u32, u32) {
         // https://github.com/ffxiv-teamcraft/simulator/blob/72f4a6037baa3cd7cd78dfe34207283b824881a2/src/model/actions/crafting-action.ts#L176
 
         let progress_div = recipe.progress_div as f32;
@@ -49,7 +49,7 @@ impl CraftContext {
             base_quality_factor *= recipe.quality_mod as f32 / 100.0;
         }
 
-        (base_progress_factor.trunc(), base_quality_factor.trunc())
+        (base_progress_factor as u32, base_quality_factor as u32)
     }
 
     fn determine_action_pool(player: &Player, recipe: &Recipe) -> ActionSet {
