@@ -1,4 +1,4 @@
-use crate::{data, Action, ActionSet, Player, Recipe};
+use crate::{Action, ActionSet, Player, Recipe};
 use serde::Deserialize;
 use ts_type::{wasm_bindgen, TsType};
 
@@ -44,11 +44,9 @@ impl CraftContext {
         let quality_div = recipe.quality_div as f32;
         let mut base_quality_factor: f32 = (player.control * 10) as f32 / quality_div + 35.0;
 
-        if let Some(&base_recipe_level) = data::base_recipe_level(player.job_level) {
-            if base_recipe_level <= recipe.recipe_level {
-                base_progress_factor *= recipe.progress_mod as f32 / 100.0;
-                base_quality_factor *= recipe.quality_mod as f32 / 100.0;
-            }
+        if player.job_level <= recipe.job_level {
+            base_progress_factor *= recipe.progress_mod as f32 / 100.0;
+            base_quality_factor *= recipe.quality_mod as f32 / 100.0;
         }
 
         (base_progress_factor.trunc(), base_quality_factor.trunc())

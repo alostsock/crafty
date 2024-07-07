@@ -12,10 +12,6 @@ fn main() {
         println!("{}", error);
         process::exit(1);
     }
-    if let Err(error) = process_level_table() {
-        println!("{}", error);
-        process::exit(1);
-    }
 }
 
 /// Process Recipe.csv and RecipeLevelTable.csv. Neither table has all of the
@@ -109,44 +105,6 @@ fn process_recipe_tables() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     Ok(())
-}
-
-/// Process LevelTable.csv, used to convert the player's job level to a base
-/// recipe level.
-fn process_level_table() -> Result<(), Box<dyn std::error::Error>> {
-    let mut levels_csv = csv::Reader::from_path("data/LevelTable.csv")?;
-
-    // Process the level table
-    let mut recipe_level_by_job_level = HashMap::new();
-
-    for record in levels_csv.deserialize::<LevelRecord>() {
-        let level = record?;
-        recipe_level_by_job_level.insert(level.job_level, level.recipe_level);
-    }
-
-    // Prepare phf map
-    let mut levels = phf_codegen::Map::new();
-    for (key, val) in recipe_level_by_job_level {
-        levels.entry(key, &val.to_string());
-    }
-
-    // Generate source files
-    let out_dir = env::var("OUT_DIR")?;
-    let out_path = Path::new(&out_dir).join("levels.rs");
-    let mut levels_writer = BufWriter::new(File::create(out_path).unwrap());
-    writeln!(
-        levels_writer,
-        "static LEVELS: phf::Map<u32, u32> = {};\n",
-        levels.build()
-    )?;
-
-    Ok(())
-}
-
-#[derive(Debug, Deserialize)]
-struct LevelRecord {
-    job_level: u32,
-    recipe_level: u32,
 }
 
 #[allow(dead_code)]
