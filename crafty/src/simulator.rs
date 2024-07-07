@@ -357,20 +357,20 @@ mod tests {
 
     fn setup_1() -> (CraftContext, SearchOptions) {
         let recipe = Recipe {
-            recipe_level: 560,
-            job_level: 90,
+            recipe_level: 690,
+            job_level: 100,
             stars: 0,
-            progress: 3500,
-            quality: 7200,
+            progress: 6600,
+            quality: 12000,
             durability: 80,
-            progress_div: 130,
+            progress_div: 170,
             progress_mod: 90,
-            quality_div: 115,
-            quality_mod: 80,
+            quality_div: 150,
+            quality_mod: 75,
             is_expert: false,
             conditions_flag: 15,
         };
-        let player = Player::new(90, 3304, 3374, 575);
+        let player = Player::new(100, 4747, 4353, 577);
         let craft_options = CraftOptions {
             max_steps: 25,
             use_manipulation: true,
@@ -432,7 +432,7 @@ mod tests {
     fn basic_actions() {
         let actions = vec![BasicTouch, BasicSynthesisTraited, MastersMend];
         let (context, _) = setup_1();
-        assert_craft(&context, actions, 276, 262, 80, 469);
+        assert_craft(&context, actions, 303, 243, 80, 471);
     }
 
     #[test]
@@ -442,25 +442,38 @@ mod tests {
             BasicTouch,
             StandardTouch,
             AdvancedTouch,
+            Observe,
+            AdvancedTouch,
             StandardTouch,
             AdvancedTouch,
         ];
         let (context, _) = setup_1();
-        assert_craft(&context, actions, 0, 2828, 30, 425);
+        assert_craft(&context, actions, 0, 2965, 20, 402);
     }
 
     #[test]
     fn with_buffs_1() {
-        let actions = vec![Reflect, Manipulation, PreparatoryTouch, WasteNotII];
+        let actions = vec![
+            Reflect,
+            Manipulation,
+            WasteNotII,
+            PreparatoryTouch,
+            DelicateSynthesisTraited,
+        ];
         let (context, _) = setup_1();
-        assert_craft(&context, actions, 0, 890, 60, 335);
+        assert_craft(&context, actions, 379, 1652, 70, 305);
     }
 
     #[test]
     fn with_buffs_2() {
-        let actions = vec![MuscleMemory, GreatStrides, PrudentTouch, DelicateSynthesis];
+        let actions = vec![
+            MuscleMemory,
+            GreatStrides,
+            PrudentTouch,
+            DelicateSynthesisTraited,
+        ];
         let (context, _) = setup_1();
-        assert_craft(&context, actions, 1150, 812, 55, 480);
+        assert_craft(&context, actions, 1518, 753, 55, 482);
     }
 
     #[test]
@@ -471,13 +484,13 @@ mod tests {
             MastersMend,
             WasteNotII,
             Innovation,
-            DelicateSynthesis,
+            DelicateSynthesisTraited,
             BasicTouch,
             GreatStrides,
             ByregotsBlessing,
         ];
         let (context, _) = setup_1();
-        assert_craft(&context, actions, 1150, 1925, 80, 163);
+        assert_craft(&context, actions, 1518, 1784, 80, 165);
     }
 
     #[test]
