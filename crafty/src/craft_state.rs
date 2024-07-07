@@ -60,7 +60,7 @@ pub struct CraftState<'a> {
 
     pub previous_combo_action: Option<Action>,
     pub quick_innovation_available: bool,
-    pub trained_perfection_available: bool,
+    pub trained_perfection_active: Option<bool>,
     pub buffs: Buffs,
 
     /// The action that led to this state
@@ -102,7 +102,7 @@ impl<'a> CraftState<'a> {
             cp: context.cp_max,
             previous_combo_action: None,
             quick_innovation_available: context.use_delineation,
-            trained_perfection_available: true,
+            trained_perfection_active: None,
             buffs: Buffs::new(),
             action: None,
             score_sum: 0.0,
@@ -184,14 +184,6 @@ impl<'a> CraftState<'a> {
                     return false;
                 }
 
-                // don't allow 0 durability moves under Trained Perfection
-                if self.previous_combo_action == Some(TrainedPerfection)
-                    && (attrs.durability_cost.is_none()
-                        || Action::calc_durability_cost(self, attrs.durability_cost.unwrap()) < 10)
-                {
-                    return false;
-                }
-
                 // only allow Advanced Touch when Observing
                 if self.previous_combo_action == Some(Observe) && action != &AdvancedTouch {
                     return false;
@@ -225,7 +217,7 @@ impl<'a> CraftState<'a> {
                 ByregotsBlessing if strict => self.buffs.inner_quiet > 1,
                 ByregotsBlessing => self.buffs.inner_quiet > 0,
                 TrainedFinesse => self.buffs.inner_quiet == 10,
-                TrainedPerfection => self.trained_perfection_available,
+                TrainedPerfection => self.trained_perfection_active.is_none(),
                 // use of Waste Not should be efficient
                 PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII if strict => {
                     self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
@@ -341,6 +333,10 @@ impl<'a> CraftState<'a> {
 
         if let Some(base_cost) = durability_cost {
             state.durability -= Action::calc_durability_cost(&state, base_cost);
+
+            if base_cost > 0 && state.trained_perfection_active == Some(true) {
+                state.trained_perfection_active = Some(false);
+            }
         }
 
         if state.buffs.manipulation > 0 && state.durability > 0 {
@@ -354,7 +350,7 @@ impl<'a> CraftState<'a> {
         state.previous_combo_action = match (state.previous_combo_action, action) {
             (Some(Action::BasicTouch), Action::StandardTouch)
             | (Some(Action::BasicTouch), Action::RefinedTouch)
-            | (_, Action::BasicTouch | Action::Observe | Action::TrainedPerfection) => Some(action),
+            | (_, Action::BasicTouch | Action::Observe) => Some(action),
             _ => None,
         };
 

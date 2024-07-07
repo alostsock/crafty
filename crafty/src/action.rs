@@ -265,7 +265,7 @@ create_actions!(
         level 100,
         durability 0,  // indicates that this move is not a buff
         effect |state| {
-            state.trained_perfection_available = false;
+            state.trained_perfection_active = Some(true);
         },
 
 );
@@ -318,7 +318,7 @@ impl Action {
     }
 
     pub fn calc_durability_cost(state: &CraftState, base_cost: i8) -> i8 {
-        if state.previous_combo_action == Some(Action::TrainedPerfection) {
+        if state.trained_perfection_active == Some(true) {
             return 0;
         }
         if state.buffs.waste_not > 0 || state.buffs.waste_not_ii > 0 {

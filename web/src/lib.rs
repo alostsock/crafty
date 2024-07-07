@@ -38,6 +38,7 @@ struct CraftState {
     cp: u32,
     cp_max: u32,
     previous_combo_action: Option<Action>,
+    trained_perfection_active: Option<bool>,
     buffs: Buffs,
     available_moves: Vec<Action>,
 }
@@ -56,6 +57,7 @@ impl CraftState {
             cp: state.cp,
             cp_max: state.context.cp_max,
             previous_combo_action: state.previous_combo_action,
+            trained_perfection_active: state.trained_perfection_active,
             buffs: state.buffs.clone(),
             available_moves: state.available_moves.to_vec(),
         }
