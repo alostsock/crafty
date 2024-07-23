@@ -9,7 +9,7 @@ pub struct Attributes {
     pub progress_efficiency: Option<u32>,
     pub quality_efficiency: Option<u32>,
     pub durability_cost: Option<i8>,
-    pub cp_cost: Option<u32>,
+    pub cp_cost: Option<u16>,
     pub effect: Option<fn(&mut CraftState)>,
 }
 
@@ -34,7 +34,7 @@ macro_rules! create_actions {
                 $(effect $effect:expr,)?
         )+ $(,)?
     ) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, EnumIndexing, TsType)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, EnumIndexing, TsType)]
         pub enum Action {
             $($action_name,)*
         }
@@ -327,7 +327,7 @@ impl Action {
         base_cost
     }
 
-    pub fn calc_cp_cost(state: &CraftState, base_cost: u32) -> u32 {
+    pub fn calc_cp_cost(state: &CraftState, base_cost: u16) -> u16 {
         use Action::*;
 
         match (state.previous_combo_action, state.action) {

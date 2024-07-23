@@ -33,7 +33,7 @@ struct Args {
 
     /// The player's cp stat
     #[clap(index = 4)]
-    cp: u32,
+    cp: u16,
 
     /// The maximum number of steps allowed
     #[clap(short = 's', long, default_value_t = 25_u8, display_order = 1000)]
@@ -71,6 +71,7 @@ struct Args {
 enum SearchMode {
     Stepwise,
     Oneshot,
+    Exhaustive,
 }
 
 impl std::fmt::Display for SearchMode {
@@ -86,7 +87,10 @@ impl std::str::FromStr for SearchMode {
         match s {
             "stepwise" => Ok(Self::Stepwise),
             "oneshot" => Ok(Self::Oneshot),
-            _ => Err(anyhow!("expected \"stepwise\" or \"oneshot\"")),
+            "exhaustive" => Ok(Self::Exhaustive),
+            _ => Err(anyhow!(
+                "expected \"stepwise\", \"oneshot\", or \"exhaustive\""
+            )),
         }
     }
 }
@@ -103,6 +107,8 @@ fn main() -> Result<()> {
     println!("\n  player stats: {}\n", green(player.to_string().as_str()));
 
     let recipe = prompt_recipe()?;
+
+    dbg!(&recipe);
 
     let search_options = SearchOptions {
         iterations: args.search_iterations,
@@ -166,6 +172,9 @@ fn main() -> Result<()> {
                     ),
                     SearchMode::Oneshot => {
                         Simulator::search_oneshot(&context, action_history.clone(), search_options)
+                    }
+                    SearchMode::Exhaustive => {
+                        Simulator::search_exhaustive(&context, action_history.clone())
                     }
                 })
                 .max_by(|(_, a), (_, b)| a.max_score.partial_cmp(&b.max_score).unwrap())

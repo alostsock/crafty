@@ -5,9 +5,11 @@
 
 mod action;
 mod action_set;
+mod backtracker;
 mod craft_context;
 mod craft_state;
 pub mod data;
+mod exhaustive_search;
 mod player;
 mod simulator;
 mod tree;

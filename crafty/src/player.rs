@@ -7,11 +7,11 @@ pub struct Player {
     pub job_level: u32,
     pub craftsmanship: u32,
     pub control: u32,
-    pub cp: u32,
+    pub cp: u16,
 }
 
 impl Player {
-    pub fn new(job_level: u32, craftsmanship: u32, control: u32, cp: u32) -> Self {
+    pub fn new(job_level: u32, craftsmanship: u32, control: u32, cp: u16) -> Self {
         Player {
             job_level,
             craftsmanship,

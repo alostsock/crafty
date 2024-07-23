@@ -15,7 +15,7 @@ pub enum CraftResult {
     InvalidActionFailure,
 }
 
-#[derive(Default, Debug, Clone, Serialize, TsType)]
+#[derive(Default, Debug, Clone, Hash, Serialize, TsType)]
 pub struct Buffs {
     pub inner_quiet: u8,
     pub waste_not: u8,
@@ -56,7 +56,7 @@ pub struct CraftState<'a> {
     pub progress: u32,
     pub quality: u32,
     pub durability: i8,
-    pub cp: u32,
+    pub cp: u16,
 
     pub previous_combo_action: Option<Action>,
     pub quick_innovation_available: bool,
@@ -282,6 +282,113 @@ impl<'a> CraftState<'a> {
         self
     }
 
+    fn set_available_moves_semistrict(&mut self) -> &mut Self {
+        if self.progress >= self.context.progress_target
+            || self.step >= self.context.step_max
+            || self.durability <= 0
+        {
+            return self;
+        }
+
+        let mut available_moves = self.context.action_pool.clone();
+        available_moves.keep(|action| {
+            use Action::*;
+            let attrs = action.attributes();
+
+            if let Some(base_cost) = attrs.cp_cost {
+                if Action::calc_cp_cost(self, base_cost) > self.cp {
+                    return false;
+                }
+            }
+
+            // don't allow quality moves at max quality
+            if self.quality >= self.context.quality_target && attrs.quality_efficiency.is_some() {
+                return false;
+            }
+
+            // always used Trained Eye if it's available
+            if self.step == 1
+                && self.context.quality_target > 0
+                && !self.context.is_expert
+                && self.context.action_pool.contains(TrainedEye)
+            {
+                return action == &TrainedEye;
+            }
+
+            // don't allow quality moves under Muscle Memory for difficult crafts
+            if self.context.recipe_job_level == self.context.player_job_level
+                && self.buffs.muscle_memory > 0
+                && attrs.quality_efficiency.is_some()
+            {
+                return false;
+            }
+
+            // don't allow pure quality moves under Veneration
+            if self.buffs.veneration > 0
+                && attrs.progress_efficiency.is_none()
+                && attrs.quality_efficiency.is_some()
+            {
+                return false;
+            }
+
+            // only allow Advanced Touch when Observing
+            if self.previous_combo_action == Some(Observe) && action != &AdvancedTouch {
+                return false;
+            }
+
+            match action {
+                MuscleMemory | Reflect => self.step == 1,
+                TrainedEye => self.step == 1 && !self.context.is_expert,
+                ByregotsBlessing => self.buffs.inner_quiet > 1,
+                TrainedFinesse => self.buffs.inner_quiet == 10,
+                TrainedPerfection => self.trained_perfection_active.is_none(),
+                PrudentSynthesis | PrudentTouch | WasteNot | WasteNotII => {
+                    self.buffs.waste_not == 0 && self.buffs.waste_not_ii == 0
+                }
+                // don't allow Observe if observing
+                // should also have enough CP to follow up with Advanced Touch (7 + 18 CP)
+                Observe => self.previous_combo_action != Some(Observe) && self.cp >= 25,
+                // don't allow Groundwork if it's downgraded
+                Groundwork | GroundworkTraited => {
+                    let cost = Action::calc_durability_cost(self, attrs.durability_cost.unwrap());
+                    self.durability >= cost
+                }
+                // don't allow Refined Touch without a combo
+                RefinedTouch => self.previous_combo_action == Some(BasicTouch),
+                // don't allow Immaculate Mends that are too inefficient
+                ImmaculateMend => {
+                    self.context.durability_max - self.durability > 45
+                        && self.buffs.manipulation == 0
+                }
+                // don't allow buffs too early
+                MastersMend => self.context.durability_max - self.durability >= 25,
+                Manipulation => self.context.use_manipulation && self.buffs.manipulation == 0,
+                GreatStrides => self.buffs.great_strides == 0,
+                QuickInnovation => {
+                    self.quick_innovation_available
+                        && self.buffs.innovation == 0
+                        && self.quality > self.context.quality_target / 3
+                }
+                // make sure we've exhaustively handled every action; don't use a wildcard here
+                AdvancedTouch
+                | BasicSynthesis
+                | BasicSynthesisTraited
+                | BasicTouch
+                | CarefulSynthesis
+                | CarefulSynthesisTraited
+                | DelicateSynthesis
+                | DelicateSynthesisTraited
+                | Innovation
+                | PreparatoryTouch
+                | StandardTouch
+                | Veneration => true,
+            }
+        });
+        self.available_moves = available_moves;
+
+        self
+    }
+
     // interesting lint, but passing by value apparently results in a 2-3% performance regression?
     #[allow(clippy::trivially_copy_pass_by_ref)]
     fn _execute(&self, &action: &Action) -> Self {
@@ -382,6 +489,12 @@ impl<'a> CraftState<'a> {
         state
     }
 
+    pub fn execute_semistrict(&self, action: &Action) -> Self {
+        let mut state = self._execute(action);
+        state.set_available_moves_semistrict();
+        state
+    }
+
     /// An evaluation of the craft. Returns a value from 0 to 1.
     #[allow(clippy::cast_precision_loss)]
     pub fn score(&self) -> f32 {
@@ -455,5 +568,31 @@ impl<'a> CraftState<'a> {
         } else {
             None
         }
+    }
+
+    pub fn check_result_simple(&self, use_progress: bool) -> Option<CraftResult> {
+        if use_progress && self.progress >= self.context.progress_target {
+            Some(CraftResult::Finished(0.0))
+        } else if !use_progress && self.quality >= self.context.quality_target {
+            Some(CraftResult::Finished(0.0))
+        } else if self.durability <= 0 {
+            Some(CraftResult::DurabilityFailure)
+        } else if self.step >= self.context.step_max {
+            Some(CraftResult::MaxStepsFailure)
+        } else if self.available_moves.is_empty() {
+            Some(CraftResult::InvalidActionFailure)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_progress_moves(&self) -> ActionSet {
+        self.available_moves
+            .intersection(&self.context.progress_action_pool)
+    }
+
+    pub fn get_quality_moves(&self) -> ActionSet {
+        self.available_moves
+            .intersection(&self.context.quality_action_pool)
     }
 }

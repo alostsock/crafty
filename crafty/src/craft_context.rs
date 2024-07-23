@@ -15,9 +15,11 @@ pub struct CraftContext {
     pub starting_quality: u32,
     pub quality_target: u32,
     pub durability_max: i8,
-    pub cp_max: u32,
+    pub cp_max: u16,
     pub is_expert: bool,
     pub action_pool: ActionSet,
+    pub progress_action_pool: ActionSet,
+    pub quality_action_pool: ActionSet,
     pub player_is_specialist: bool,
     pub use_manipulation: bool,
     pub use_delineation: bool,
@@ -52,7 +54,7 @@ impl CraftContext {
         (base_progress_factor as u32, base_quality_factor as u32)
     }
 
-    fn determine_action_pool(player: &Player, recipe: &Recipe) -> ActionSet {
+    fn get_action_pool(player: &Player, recipe: &Recipe) -> ActionSet {
         let mut pool = ActionSet::new();
 
         for action in Action::ACTIONS {
@@ -87,8 +89,59 @@ impl CraftContext {
         pool
     }
 
+    fn get_progress_action_pool(action_pool: &ActionSet) -> ActionSet {
+        use Action::*;
+        let mut pool = action_pool.clone();
+        for action in [
+            BasicTouch,
+            Observe,
+            StandardTouch,
+            GreatStrides,
+            Innovation,
+            ByregotsBlessing,
+            PrudentTouch,
+            AdvancedTouch,
+            Reflect,
+            PreparatoryTouch,
+            DelicateSynthesis,
+            TrainedEye,
+            TrainedFinesse,
+            RefinedTouch,
+            DelicateSynthesisTraited,
+            QuickInnovation,
+        ] {
+            pool.unset(action);
+        }
+        pool
+    }
+
+    fn get_quality_action_pool(action_pool: &ActionSet) -> ActionSet {
+        use Action::*;
+        let mut pool = action_pool.clone();
+        for action in [
+            BasicSynthesis,
+            Veneration,
+            BasicSynthesisTraited,
+            MuscleMemory,
+            CarefulSynthesis,
+            Groundwork,
+            DelicateSynthesis,
+            CarefulSynthesisTraited,
+            GroundworkTraited,
+            PrudentSynthesis,
+        ] {
+            pool.unset(action);
+        }
+        pool
+    }
+
     pub fn new(player: &Player, recipe: &Recipe, options: CraftOptions) -> Self {
         let (base_progress_factor, base_quality_factor) = Self::base_factors(player, recipe);
+
+        let action_pool = Self::get_action_pool(player, recipe);
+        let progress_action_pool = Self::get_progress_action_pool(&action_pool);
+        let quality_action_pool = Self::get_quality_action_pool(&action_pool);
+
         Self {
             player_job_level: player.job_level,
             recipe_job_level: recipe.job_level,
@@ -101,7 +154,9 @@ impl CraftContext {
             durability_max: recipe.durability,
             cp_max: player.cp,
             is_expert: recipe.is_expert,
-            action_pool: Self::determine_action_pool(player, recipe),
+            action_pool,
+            progress_action_pool,
+            quality_action_pool,
             player_is_specialist: options.player_is_specialist,
             use_manipulation: options.use_manipulation,
             use_delineation: options.use_delineation,

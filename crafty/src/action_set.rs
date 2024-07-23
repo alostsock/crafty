@@ -12,11 +12,11 @@ impl ActionSet {
         1u32 << action.index()
     }
 
-    pub fn set_bit(&mut self, bit: u32) {
+    fn set_bit(&mut self, bit: u32) {
         self.0 |= bit;
     }
 
-    pub fn unset_bit(&mut self, bit: u32) {
+    fn unset_bit(&mut self, bit: u32) {
         self.0 &= !bit;
     }
 
@@ -121,6 +121,17 @@ impl ActionSet {
         }
 
         actions
+    }
+
+    pub fn intersection(&self, other: &Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Action> + '_ {
+        Action::ACTIONS
+            .iter()
+            .copied()
+            .filter(|&action| self.contains(action))
     }
 }
 

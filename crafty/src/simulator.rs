@@ -1,4 +1,6 @@
-use crate::{tree::Arena, Action, CraftContext, CraftResult, CraftState};
+use crate::{
+    exhaustive_search::ExhaustiveSearch, tree::Arena, Action, CraftContext, CraftResult, CraftState,
+};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::Deserialize;
 use ts_type::{wasm_bindgen, TsType};
@@ -344,9 +346,31 @@ impl<'a> Simulator<'a> {
         action_history: Vec<Action>,
         search_options: SearchOptions,
     ) -> (Vec<Action>, CraftState<'a>) {
-        let mut sim = Self::from_context(context, search_options);
+        let (start_state, result) = Self::simulate(context, action_history.clone());
+        if result.is_some() {
+            return (action_history, start_state);
+        }
+
+        let mut sim = Self::from_state(start_state, search_options);
         let (actions, result_state) = sim.search(0).solution();
         ([action_history, actions].concat(), result_state)
+    }
+
+    pub fn search_exhaustive(
+        context: &'a CraftContext,
+        action_history: Vec<Action>,
+    ) -> (Vec<Action>, CraftState<'a>) {
+        let (start_state, result) = Self::simulate(context, action_history.clone());
+        if result.is_some() {
+            return (action_history, start_state);
+        }
+
+        let mut exhaustive_search = ExhaustiveSearch::new(start_state.clone_strict());
+        let actions = exhaustive_search.search().unwrap_or_else(|| vec![]);
+        let actions = ([action_history, actions]).concat();
+        let (result_state, _) = Self::simulate(context, actions.clone());
+
+        return (actions, result_state);
     }
 }
 
@@ -419,7 +443,7 @@ mod tests {
         progress: u32,
         quality: u32,
         durability: i8,
-        cp: u32,
+        cp: u16,
     ) {
         let (end_state, _) = Simulator::simulate(context, actions);
         assert_eq!(end_state.progress, progress);
