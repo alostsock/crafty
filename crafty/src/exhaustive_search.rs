@@ -210,6 +210,22 @@ pub struct Solution {
     backtracker_index: Option<usize>,
 }
 
+#[derive(Default, Debug)]
+struct Stats {
+    states_visited: usize,
+    finishable_lower_bound_count: usize,
+    finishable_lower_bound_count_max: usize,
+    finishable_states_count: usize,
+    finishable_rejections: usize,
+    hqable_lower_bound_count: usize,
+    hqable_lower_bound_count_max: usize,
+    hqable_states_count: usize,
+    hqable_rejections: usize,
+    visited_upper_bound_count: usize,
+    visited_upper_bound_count_max: usize,
+    visited_upper_bound_rejections: usize,
+}
+
 pub struct ExhaustiveSearch<'a> {
     backtracker: Backtracker<Action>,
     best_solution: Solution,
@@ -219,6 +235,7 @@ pub struct ExhaustiveSearch<'a> {
     hqable_lower_bound: ParetoFront<HqableState>,
     checked_hqable_states: AHashMap<HqableState, bool>,
     visited_upper_bound: ParetoFront<ReducedState>,
+    stats: Stats,
 }
 
 impl<'a> ExhaustiveSearch<'a> {
@@ -243,26 +260,25 @@ impl<'a> ExhaustiveSearch<'a> {
             hqable_lower_bound: ParetoFront::new(),
             checked_hqable_states: AHashMap::new(),
             visited_upper_bound: ParetoFront::new(),
+            stats: Stats::default(),
         }
     }
 
     pub fn search(&mut self) -> Option<Vec<Action>> {
-        let mut a_rej: usize = 0;
-        let mut b_rej: usize = 0;
-        let mut c_rej: usize = 0;
-
         while let Some(QueuedState {
             state,
             parent_index,
         }) = self.queue.pop()
         {
+            self.stats.states_visited += 1;
+
             if !self.check_finishable(&state) {
-                a_rej += 1;
+                self.stats.finishable_rejections += 1;
                 continue;
             }
 
             if !self.check_hqable(&state) {
-                b_rej += 1;
+                self.stats.hqable_rejections += 1;
                 continue;
             }
 
@@ -271,7 +287,6 @@ impl<'a> ExhaustiveSearch<'a> {
                 .and_then(|action| Some(self.backtracker.push(parent_index, action)));
 
             if !self.check_solution_should_continue(&state, backtracker_index) {
-                c_rej += 1;
                 continue;
             }
 
@@ -284,7 +299,13 @@ impl<'a> ExhaustiveSearch<'a> {
             }
         }
 
-        dbg!(a_rej, b_rej, c_rej);
+        self.stats.finishable_lower_bound_count = self.finishable_lower_bound.len();
+        self.stats.finishable_states_count = self.checked_finishable_states.len();
+        self.stats.hqable_lower_bound_count = self.hqable_lower_bound.len();
+        self.stats.hqable_states_count = self.checked_finishable_states.len();
+        self.stats.visited_upper_bound_count = self.visited_upper_bound.len();
+
+        dbg!(&self.stats);
 
         self.get_solution()
     }
@@ -314,6 +335,10 @@ impl<'a> ExhaustiveSearch<'a> {
                 self.check_finishable(&next_state)
             }) {
                 self.finishable_lower_bound.push(candidate.clone());
+                self.stats.finishable_lower_bound_count_max = self
+                    .finishable_lower_bound
+                    .len()
+                    .max(self.stats.finishable_lower_bound_count_max);
                 true
             } else {
                 false
@@ -349,6 +374,10 @@ impl<'a> ExhaustiveSearch<'a> {
                 self.check_hqable(&next_state)
             }) {
                 self.hqable_lower_bound.push(candidate.clone());
+                self.stats.hqable_lower_bound_count_max = self
+                    .hqable_lower_bound
+                    .len()
+                    .max(self.stats.hqable_lower_bound_count_max);
                 true
             } else {
                 false
@@ -367,7 +396,6 @@ impl<'a> ExhaustiveSearch<'a> {
         match state.check_result() {
             Some(CraftResult::Finished(score)) => {
                 if score > self.best_solution.score {
-                    dbg!(self.get_solution());
                     self.best_solution = Solution {
                         score,
                         backtracker_index,
@@ -378,7 +406,16 @@ impl<'a> ExhaustiveSearch<'a> {
             Some(_) => false,
             _ => {
                 let candidate = ReducedState::from_state(state);
-                self.visited_upper_bound.push(candidate)
+                if self.visited_upper_bound.push(candidate) {
+                    self.stats.visited_upper_bound_count_max = self
+                        .visited_upper_bound
+                        .len()
+                        .max(self.stats.visited_upper_bound_count_max);
+                    true
+                } else {
+                    self.stats.visited_upper_bound_rejections += 1;
+                    false
+                }
             }
         }
     }
