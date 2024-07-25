@@ -17,12 +17,13 @@ pub struct CraftContext {
     pub durability_max: i8,
     pub cp_max: u16,
     pub is_expert: bool,
-    pub action_pool: ActionSet,
-    pub progress_action_pool: ActionSet,
-    pub quality_action_pool: ActionSet,
     pub player_is_specialist: bool,
     pub use_manipulation: bool,
     pub use_delineation: bool,
+    pub action_pool: ActionSet,
+    // used for exhaustive search
+    pub progress_action_pool: ActionSet,
+    pub quality_action_pool: ActionSet,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, TsType)]
@@ -103,11 +104,9 @@ impl CraftContext {
             AdvancedTouch,
             Reflect,
             PreparatoryTouch,
-            DelicateSynthesis,
             TrainedEye,
             TrainedFinesse,
             RefinedTouch,
-            DelicateSynthesisTraited,
             QuickInnovation,
         ] {
             pool.unset(action);
@@ -125,7 +124,6 @@ impl CraftContext {
             MuscleMemory,
             CarefulSynthesis,
             Groundwork,
-            DelicateSynthesis,
             CarefulSynthesisTraited,
             GroundworkTraited,
             PrudentSynthesis,
@@ -154,12 +152,12 @@ impl CraftContext {
             durability_max: recipe.durability,
             cp_max: player.cp,
             is_expert: recipe.is_expert,
-            action_pool,
-            progress_action_pool,
-            quality_action_pool,
             player_is_specialist: options.player_is_specialist,
             use_manipulation: options.use_manipulation,
             use_delineation: options.use_delineation,
+            action_pool,
+            progress_action_pool,
+            quality_action_pool,
         }
     }
 }

@@ -570,7 +570,22 @@ impl<'a> CraftState<'a> {
         }
     }
 
-    pub fn check_result_simple(&self, use_progress: bool) -> Option<CraftResult> {
+    pub fn check_result_simple(&self) -> Option<CraftResult> {
+        if self.progress >= self.context.progress_target {
+            let score = 1.0f32.min(self.quality as f32 / self.context.quality_target as f32);
+            Some(CraftResult::Finished(score))
+        } else if self.durability <= 0 {
+            Some(CraftResult::DurabilityFailure)
+        } else if self.step >= self.context.step_max {
+            Some(CraftResult::MaxStepsFailure)
+        } else if self.available_moves.is_empty() {
+            Some(CraftResult::InvalidActionFailure)
+        } else {
+            None
+        }
+    }
+
+    pub fn check_result_partial(&self, use_progress: bool) -> Option<CraftResult> {
         if use_progress && self.progress >= self.context.progress_target {
             Some(CraftResult::Finished(0.0))
         } else if !use_progress && self.quality >= self.context.quality_target {

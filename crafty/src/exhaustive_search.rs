@@ -212,18 +212,24 @@ pub struct Solution {
 
 #[derive(Default, Debug)]
 struct Stats {
-    states_visited: usize,
+    queued_states_visited: usize,
     finishable_lower_bound_count: usize,
     finishable_lower_bound_count_max: usize,
     finishable_states_count: usize,
+    finishable_states_hits: usize,
+    finishable_states_misses: usize,
     finishable_rejections: usize,
+    finishable_inner_rejections: usize,
     hqable_lower_bound_count: usize,
     hqable_lower_bound_count_max: usize,
     hqable_states_count: usize,
+    hqable_states_hits: usize,
+    hqable_states_misses: usize,
     hqable_rejections: usize,
     visited_upper_bound_count: usize,
     visited_upper_bound_count_max: usize,
     visited_upper_bound_rejections: usize,
+    dead_ends: usize,
 }
 
 pub struct ExhaustiveSearch<'a> {
@@ -270,32 +276,44 @@ impl<'a> ExhaustiveSearch<'a> {
             parent_index,
         }) = self.queue.pop()
         {
-            self.stats.states_visited += 1;
+            self.stats.queued_states_visited += 1;
 
-            if !self.check_finishable(&state) {
+            if !self.check_finishable_lower_bound(&state) {
                 self.stats.finishable_rejections += 1;
                 continue;
             }
 
-            if !self.check_hqable(&state) {
+            if !self.check_hqable_lower_bound(&state) {
                 self.stats.hqable_rejections += 1;
                 continue;
             }
 
-            let backtracker_index = state
-                .action
-                .and_then(|action| Some(self.backtracker.push(parent_index, action)));
-
-            if !self.check_solution_should_continue(&state, backtracker_index) {
+            if !self.check_is_upper_bound(&state) {
                 continue;
             }
 
             for action in state.available_moves.iter() {
+                let backtracker_index = Some(self.backtracker.push(parent_index, action));
                 let child_state = state.execute_semistrict(&action);
-                self.queue.push(QueuedState {
-                    state: child_state,
-                    parent_index: backtracker_index,
-                });
+                match child_state.check_result_simple() {
+                    Some(CraftResult::Finished(score)) => {
+                        if score > self.best_solution.score {
+                            self.best_solution = Solution {
+                                score,
+                                backtracker_index,
+                            };
+                        }
+                    }
+                    Some(_) => {
+                        self.stats.dead_ends += 1;
+                    }
+                    _ => {
+                        self.queue.push(QueuedState {
+                            state: child_state,
+                            parent_index: backtracker_index,
+                        });
+                    }
+                }
             }
         }
 
@@ -310,8 +328,8 @@ impl<'a> ExhaustiveSearch<'a> {
         self.get_solution()
     }
 
-    fn check_finishable(&mut self, state: &CraftState) -> bool {
-        match state.check_result_simple(true) {
+    fn check_finishable_lower_bound(&mut self, state: &CraftState) -> bool {
+        match state.check_result_partial(true) {
             Some(CraftResult::Finished(_)) => return true,
             Some(_) => return false,
             _ => (),
@@ -320,8 +338,11 @@ impl<'a> ExhaustiveSearch<'a> {
         let candidate = FinishableState::from_state(state);
 
         if let Some(&finishable) = self.checked_finishable_states.get(&candidate) {
+            self.stats.finishable_states_hits += 1;
             return finishable;
         }
+
+        self.stats.finishable_states_misses += 1;
 
         let finishable = {
             if self
@@ -332,7 +353,7 @@ impl<'a> ExhaustiveSearch<'a> {
                 true
             } else if state.get_progress_moves().iter().any(|action| {
                 let next_state = state.execute_semistrict(&action);
-                self.check_finishable(&next_state)
+                self.check_finishable_lower_bound(&next_state)
             }) {
                 self.finishable_lower_bound.push(candidate.clone());
                 self.stats.finishable_lower_bound_count_max = self
@@ -349,18 +370,26 @@ impl<'a> ExhaustiveSearch<'a> {
         finishable
     }
 
-    fn check_hqable(&mut self, state: &CraftState) -> bool {
-        match state.check_result_simple(false) {
+    fn check_hqable_lower_bound(&mut self, state: &CraftState) -> bool {
+        match state.check_result_partial(false) {
             Some(CraftResult::Finished(_)) => return true,
             Some(_) => return false,
             _ => (),
         }
 
+        if !self.check_finishable_lower_bound(state) {
+            self.stats.finishable_inner_rejections += 1;
+            return false;
+        }
+
         let candidate = HqableState::from_state(state);
 
         if let Some(&hqable) = self.checked_hqable_states.get(&candidate) {
+            self.stats.hqable_states_hits += 1;
             return hqable;
         }
+
+        self.stats.hqable_states_misses += 1;
 
         let hqable = {
             if self
@@ -370,8 +399,8 @@ impl<'a> ExhaustiveSearch<'a> {
             {
                 true
             } else if state.get_quality_moves().iter().any(|action| {
-                let next_state = state.execute_strict(&action);
-                self.check_hqable(&next_state)
+                let next_state = state.execute_semistrict(&action);
+                self.check_hqable_lower_bound(&next_state)
             }) {
                 self.hqable_lower_bound.push(candidate.clone());
                 self.stats.hqable_lower_bound_count_max = self
@@ -388,35 +417,17 @@ impl<'a> ExhaustiveSearch<'a> {
         hqable
     }
 
-    fn check_solution_should_continue(
-        &mut self,
-        state: &CraftState,
-        backtracker_index: Option<usize>,
-    ) -> bool {
-        match state.check_result() {
-            Some(CraftResult::Finished(score)) => {
-                if score > self.best_solution.score {
-                    self.best_solution = Solution {
-                        score,
-                        backtracker_index,
-                    };
-                }
-                false
-            }
-            Some(_) => false,
-            _ => {
-                let candidate = ReducedState::from_state(state);
-                if self.visited_upper_bound.push(candidate) {
-                    self.stats.visited_upper_bound_count_max = self
-                        .visited_upper_bound
-                        .len()
-                        .max(self.stats.visited_upper_bound_count_max);
-                    true
-                } else {
-                    self.stats.visited_upper_bound_rejections += 1;
-                    false
-                }
-            }
+    fn check_is_upper_bound(&mut self, state: &CraftState) -> bool {
+        let candidate = ReducedState::from_state(state);
+        if self.visited_upper_bound.push(candidate) {
+            self.stats.visited_upper_bound_count_max = self
+                .visited_upper_bound
+                .len()
+                .max(self.stats.visited_upper_bound_count_max);
+            true
+        } else {
+            self.stats.visited_upper_bound_rejections += 1;
+            false
         }
     }
 
