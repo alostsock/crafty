@@ -315,22 +315,6 @@ impl<'a> CraftState<'a> {
                 return action == &TrainedEye;
             }
 
-            // don't allow quality moves under Muscle Memory for difficult crafts
-            if self.context.recipe_job_level == self.context.player_job_level
-                && self.buffs.muscle_memory > 0
-                && attrs.quality_efficiency.is_some()
-            {
-                return false;
-            }
-
-            // don't allow pure quality moves under Veneration
-            if self.buffs.veneration > 0
-                && attrs.progress_efficiency.is_none()
-                && attrs.quality_efficiency.is_some()
-            {
-                return false;
-            }
-
             // only allow Advanced Touch when Observing
             if self.previous_combo_action == Some(Observe) && action != &AdvancedTouch {
                 return false;
@@ -364,6 +348,8 @@ impl<'a> CraftState<'a> {
                 MastersMend => self.context.durability_max - self.durability >= 25,
                 Manipulation => self.context.use_manipulation && self.buffs.manipulation == 0,
                 GreatStrides => self.buffs.great_strides == 0,
+                Veneration => self.buffs.veneration <= 2,
+                Innovation => self.buffs.innovation <= 2,
                 QuickInnovation => {
                     self.quick_innovation_available
                         && self.buffs.innovation == 0
@@ -378,10 +364,8 @@ impl<'a> CraftState<'a> {
                 | CarefulSynthesisTraited
                 | DelicateSynthesis
                 | DelicateSynthesisTraited
-                | Innovation
                 | PreparatoryTouch
-                | StandardTouch
-                | Veneration => true,
+                | StandardTouch => true,
             }
         });
         self.available_moves = available_moves;

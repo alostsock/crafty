@@ -3,7 +3,7 @@ use rand::{rngs::SmallRng, Rng};
 
 use crate::Action;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct ActionSet(u32);
 
 impl ActionSet {
@@ -132,6 +132,12 @@ impl ActionSet {
             .iter()
             .copied()
             .filter(|&action| self.contains(action))
+    }
+}
+
+impl core::fmt::Debug for ActionSet {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self.to_vec())
     }
 }
 
