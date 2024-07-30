@@ -328,6 +328,7 @@ pub struct Stats {
     finishable_states_misses: usize,
     finishable_rejections: usize,
     finishable_inner_rejections: usize,
+    finishable_max_depth: usize,
     hqable_lower_bound_count: usize,
     hqable_lower_bound_count_max: usize,
     nonhqable_lower_bound_count: usize,
@@ -336,6 +337,8 @@ pub struct Stats {
     hqable_states_hits: usize,
     hqable_states_misses: usize,
     hqable_rejections: usize,
+    hqable_max_depth: usize,
+    hqable_visits_by_depth: Vec<usize>,
     visited_upper_bound_count: usize,
     visited_upper_bound_count_max: usize,
     visited_upper_bound_rejections: usize,
@@ -363,7 +366,7 @@ impl<'a> ExhaustiveSearch<'a> {
     pub fn new(initial_state: CraftState<'a>) -> Self {
         let mut queue = BinaryHeap::new();
         queue.push(QueuedState {
-            state: initial_state,
+            state: initial_state.clone(),
             parent_index: None,
         });
 
@@ -371,6 +374,8 @@ impl<'a> ExhaustiveSearch<'a> {
             score: 0.0,
             backtracker_index: None,
         };
+
+        let max_depth = initial_state.context.step_max as usize;
 
         Self {
             rng: SmallRng::from_entropy(),
@@ -384,7 +389,10 @@ impl<'a> ExhaustiveSearch<'a> {
             nonhqable_lower_bound: ParetoFront::new(),
             checked_hqable_states: AHashMap::new(),
             visited_upper_bound: ParetoFront::new(),
-            stats: Stats::default(),
+            stats: Stats {
+                hqable_visits_by_depth: vec![0; max_depth],
+                ..Stats::default()
+            },
         }
     }
 
@@ -407,12 +415,12 @@ impl<'a> ExhaustiveSearch<'a> {
         {
             self.stats.queued_states_visited += 1;
 
-            if !self.check_finishable_bounds(&state) {
+            if !self.check_finishable_bounds(&state, 0) {
                 self.stats.finishable_rejections += 1;
                 continue;
             }
 
-            if !self.check_hqable_bounds(&state) {
+            if !self.check_hqable_bounds(&state, 0) {
                 self.stats.hqable_rejections += 1;
                 continue;
             }
@@ -458,12 +466,14 @@ impl<'a> ExhaustiveSearch<'a> {
         self.get_solution()
     }
 
-    fn check_finishable_bounds(&mut self, state: &CraftState) -> bool {
+    fn check_finishable_bounds(&mut self, state: &CraftState, depth: usize) -> bool {
         match state.check_result_partial(true) {
             Some(CraftResult::Finished(_)) => return true,
             Some(_) => return false,
             _ => (),
         }
+
+        self.stats.finishable_max_depth = self.stats.finishable_max_depth.max(depth);
 
         let finishable_state = FinishableState::from_state(state);
 
@@ -491,7 +501,7 @@ impl<'a> ExhaustiveSearch<'a> {
                 false
             } else if state.get_progress_moves().iter().any(|action| {
                 let next_state = state.execute_semistrict(&action);
-                self.check_finishable_bounds(&next_state)
+                self.check_finishable_bounds(&next_state, depth + 1)
             }) {
                 self.finishable_lower_bound.push(finishable_state.clone());
                 self.stats.finishable_lower_bound_count_max = self
@@ -514,14 +524,19 @@ impl<'a> ExhaustiveSearch<'a> {
         finishable
     }
 
-    fn check_hqable_bounds(&mut self, state: &CraftState) -> bool {
+    fn check_hqable_bounds(&mut self, state: &CraftState, depth: usize) -> bool {
         match state.check_result_partial(false) {
-            Some(CraftResult::Finished(_)) => return true,
+            Some(CraftResult::Finished(_)) => {
+                return true;
+            }
             Some(_) => return false,
             _ => (),
         }
 
-        if !self.check_finishable_bounds(state) {
+        self.stats.hqable_max_depth = self.stats.hqable_max_depth.max(depth);
+        self.stats.hqable_visits_by_depth[depth] += 1;
+
+        if !self.check_finishable_bounds(state, 0) {
             self.stats.finishable_inner_rejections += 1;
             return false;
         }
@@ -552,7 +567,7 @@ impl<'a> ExhaustiveSearch<'a> {
                 false
             } else if state.get_quality_moves().iter().any(|action| {
                 let next_state = state.execute_semistrict(&action);
-                self.check_hqable_bounds(&next_state)
+                self.check_hqable_bounds(&next_state, depth + 1)
             }) {
                 self.hqable_lower_bound.push(hqable_state.clone());
                 self.stats.hqable_lower_bound_count_max = self
@@ -562,11 +577,6 @@ impl<'a> ExhaustiveSearch<'a> {
                 true
             } else {
                 self.nonhqable_lower_bound.push(nonhqable_state);
-
-                if self.rng.gen_ratio(1, 50_000) {
-                    dbg!(&state);
-                }
-
                 self.stats.nonhqable_lower_bound_count_max = self
                     .nonhqable_lower_bound
                     .len()
