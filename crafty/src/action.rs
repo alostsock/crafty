@@ -250,6 +250,7 @@ create_actions!(
     // DaringTouch
     [QuickInnovation, "Quick Innovation"]
         level 96,
+        durability 0,  // indicates that this move is not a buff
         effect |state| {
             state.buffs.innovation = 1;
             state.quick_innovation_available = false;
